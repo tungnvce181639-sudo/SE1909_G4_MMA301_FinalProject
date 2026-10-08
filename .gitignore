@@ -1,0 +1,44 @@
+﻿# ==========================================
+# 1. DEPENDENCIES & PACKAGES (CHẶN NẶNG GIT)
+# ==========================================
+node_modules/
+**/node_modules/
+
+# ==========================================
+# 2. BẢO MẬT BÍ MẬT & MÔI TRƯỜNG (SECURITY)
+# ==========================================
+.env
+*.env
+**/.env
+backend/.env
+frontend/.env
+firebase-service-account.json
+*.pem
+
+# ==========================================
+# 3. EXPO / REACT NATIVE / BUILDS (CACHE & ARTIFACTS)
+# ==========================================
+.expo/
+**/.expo/
+dist/
+web-build/
+*.apk
+*.aab
+*.ipa
+
+# ==========================================
+# 4. LOGS & TEMPORARY FILES
+# ==========================================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# ==========================================
+# 5. IDE / EDITOR SETTINGS
+# ==========================================
+.vscode/
+.idea/
+*.swp
+.DS_Store

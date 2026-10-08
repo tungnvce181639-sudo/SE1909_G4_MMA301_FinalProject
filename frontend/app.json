@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "SmartCampus Market",
+    "slug": "smartcampus-market",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "plugins": [
+      "expo-asset"
+    ]
+  }
+}
