@@ -11,5 +11,7 @@
     "plugins": [
       "expo-asset"
     ]
+    
+    
   }
 }
