@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -12,12 +13,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 
 const getScaledFontSize = (size, scale) =>
   size * (typeof scale === 'number' ? scale : 1);
 
 export default function LoginScreen({ navigation }) {
   const { theme, isDarkMode, primaryColor, fontSizeScale } = useTheme();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -37,7 +40,7 @@ export default function LoginScreen({ navigation }) {
     setIsSuccess(success);
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     const trimmedEmail = email.trim();
 
     if (!trimmedEmail) {
@@ -55,8 +58,11 @@ export default function LoginScreen({ navigation }) {
       return;
     }
 
-    showNotice('Đăng nhập SmartCampus Market thành công!', true);
-    navigation?.navigate('MainTabs');
+    try {
+      await login(email, password);
+    } catch (error) {
+      Alert.alert('Lỗi đăng nhập', error.message);
+    }
   };
 
   const handleRegister = () => {
@@ -160,7 +166,7 @@ export default function LoginScreen({ navigation }) {
             </View>
           </View>
 
-          <TouchableOpacity onPress={() => showNotice('Hướng dẫn khôi phục mật khẩu sẽ được gửi về mail @fpt.edu.vn')} style={styles.forgotButton}>
+          <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={styles.forgotButton}>
             <Text style={[styles.actionText, { color: accentColor, fontSize: getScaledFontSize(12, fontSizeScale) }]}>Quên mật khẩu?</Text>
           </TouchableOpacity>
 

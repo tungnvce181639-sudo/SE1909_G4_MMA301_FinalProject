@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -97,6 +98,7 @@ function MenuItem({ item, navigation, theme, fontSizeScale }) {
 export default function UserProfileScreen({ navigation }) {
   const { theme, isDarkMode, primaryColor, fontSizeScale } = useTheme();
   const { profile } = useProfile();
+  const { logout } = useAuth();
   const avatar = profile.avatar
     ? (typeof profile.avatar === 'string' ? { uri: profile.avatar } : profile.avatar)
     : { uri: defaultAvatar };
@@ -226,6 +228,17 @@ export default function UserProfileScreen({ navigation }) {
           </View>
         ))}
 
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Đăng xuất"
+          activeOpacity={0.75}
+          onPress={logout}
+          style={[styles.logoutButton, { borderColor: '#ba1a1a', backgroundColor: theme.card }]}
+        >
+          <Ionicons name="log-out-outline" size={20} color="#ba1a1a" />
+          <Text style={styles.logoutButtonText}>Đăng xuất</Text>
+        </TouchableOpacity>
+
         <View style={styles.footer}>
           <Text style={[styles.footerTitle, { color: theme.textSecondary }]}>SMARTCAMPUS MARKET • FPT UNIVERSITY</Text>
           <Text style={[styles.footerText, { color: theme.textSecondary }]}>Mạng lưới mua bán trao đổi an toàn dành riêng cho sinh viên</Text>
@@ -305,6 +318,8 @@ const styles = StyleSheet.create({
   menuItemRight: { flexDirection: 'row', alignItems: 'center', marginLeft: 8, gap: 6 },
   badge: { color: '#ffffff', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, fontWeight: '700' },
   detail: { fontWeight: '600' },
+  logoutButton: { marginHorizontal: 16, marginTop: 20, height: 46, borderWidth: 1, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  logoutButtonText: { color: '#ba1a1a', fontSize: 14, fontWeight: '700' },
   footer: { alignItems: 'center', paddingHorizontal: 16, paddingTop: 24 },
   footerTitle: { fontSize: 10, fontWeight: '700', letterSpacing: 1, textAlign: 'center' },
   footerText: { fontSize: 12, textAlign: 'center', marginTop: 4 },
