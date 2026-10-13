@@ -1,10 +1,12 @@
 import React from 'react';
+import { Text, View } from 'react-native';
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { useProfile } from '../context/ProfileContext';
 
 import LoginScreen from '../screens/auth/LoginScreen';
 import HomeScreen from '../screens/home/HomeScreen';
@@ -19,6 +21,14 @@ import SettingsScreen from '../screens/settings/SettingsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+
+function AdminDashboardScreen() {
+  return (
+    <View>
+      <Text>Admin Dashboard</Text>
+    </View>
+  );
+}
 
 const tabScreens = {
   Home: {
@@ -51,15 +61,26 @@ const tabScreens = {
     icon: 'person-outline',
     activeIcon: 'person',
   },
+  Admin: {
+    component: AdminDashboardScreen,
+    label: 'Duyệt bài',
+    icon: 'shield-checkmark-outline',
+    activeIcon: 'shield-checkmark',
+  },
 };
 
 function TabNavigator() {
   const { theme, primaryColor } = useTheme();
+  const { profile, loading: profileLoading } = useProfile();
+  const { role } = profile || {};
+  const visibleTabScreens = Object.fromEntries(
+    Object.entries(tabScreens).filter(([name]) => name !== 'Admin' || (!profileLoading && role === 'admin')),
+  );
 
   return (
     <Tab.Navigator
       screenOptions={({ route }) => {
-        const tab = tabScreens[route.name];
+        const tab = visibleTabScreens[route.name];
 
         return {
           headerShown: false,
@@ -82,7 +103,7 @@ function TabNavigator() {
         };
       }}
     >
-      {Object.entries(tabScreens).map(([name, tab]) => (
+      {Object.entries(visibleTabScreens).map(([name, tab]) => (
         <Tab.Screen key={name} name={name} component={tab.component} options={{ title: tab.label }} />
       ))}
     </Tab.Navigator>

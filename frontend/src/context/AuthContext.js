@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   createUserWithEmailAndPassword,
@@ -9,8 +10,9 @@ import {
   signOut,
   updateProfile,
 } from 'firebase/auth';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { auth } from '../services/firebaseConfig';
+import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
+//import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { auth, db, USERS_COLLECTION } from '../services/firebaseConfig';
 
 const USER_TOKEN_KEY = 'userToken';
 
@@ -18,6 +20,21 @@ export const AuthContext = createContext(null);
 
 function logAuthError(operation, error) {
   console.error(`[AuthContext] ${operation} failed:`, error);
+}
+
+function showAuthError(operation, error) {
+  const messages = {
+    'auth/email-already-in-use': 'Email đã tồn tại',
+    'auth/invalid-email': 'Email không hợp lệ',
+    'auth/invalid-credential': 'Sai mật khẩu',
+    'auth/user-not-found': 'Tài khoản không tồn tại',
+    'auth/wrong-password': 'Sai mật khẩu',
+  };
+
+  Alert.alert(
+    `${operation} thất bại`,
+    messages[error?.code] || 'Đã xảy ra lỗi. Vui lòng thử lại.',
+  );
 }
 
 async function persistUserToken(firebaseUser) {
@@ -45,6 +62,7 @@ export function AuthProvider({ children }) {
         }
       } catch (error) {
         logAuthError('Restoring authentication session', error);
+        showAuthError('Khôi phục phiên đăng nhập', error);
         setUser(null);
         setUserToken(null);
       } finally {
@@ -66,6 +84,7 @@ export function AuthProvider({ children }) {
       return { user: result.user, token };
     } catch (error) {
       logAuthError('Login', error);
+      showAuthError('Đăng nhập', error);
       throw error;
     } finally {
       setLoading(false);
@@ -78,6 +97,13 @@ export function AuthProvider({ children }) {
     try {
       const result = await createUserWithEmailAndPassword(auth, email.trim(), password);
 
+      await setDoc(doc(db, USERS_COLLECTION, result.user.uid), {
+        email: result.user.email || email.trim(),
+        fullName: name,
+        role: 'student',
+        createdAt: serverTimestamp(),
+      });
+
       if (name?.trim()) {
         await updateProfile(result.user, { displayName: name.trim() });
       }
@@ -88,6 +114,7 @@ export function AuthProvider({ children }) {
       return { user: result.user, token };
     } catch (error) {
       logAuthError('Registration', error);
+      showAuthError('Đăng ký', error);
       throw error;
     } finally {
       setLoading(false);
@@ -119,6 +146,7 @@ export function AuthProvider({ children }) {
       return { user: result.user, token };
     } catch (error) {
       logAuthError('Google sign-in', error);
+      showAuthError('Đăng nhập Google', error);
       throw error;
     } finally {
       setLoading(false);
@@ -135,6 +163,7 @@ export function AuthProvider({ children }) {
       setUserToken(null);
     } catch (error) {
       logAuthError('Logout', error);
+      showAuthError('Đăng xuất', error);
       throw error;
     } finally {
       setLoading(false);
