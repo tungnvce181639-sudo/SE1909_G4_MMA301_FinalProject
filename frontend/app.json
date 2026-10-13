@@ -9,9 +9,8 @@
       "**/*"
     ],
     "plugins": [
-      "expo-asset"
+      "expo-asset",
+      "@react-native-google-signin/google-signin"
     ]
-    
-    
   }
 }
