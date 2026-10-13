@@ -9,6 +9,10 @@ import { useAuth } from '../context/AuthContext';
 import { useProfile } from '../context/ProfileContext';
 
 import LoginScreen from '../screens/auth/LoginScreen';
+import RegisterScreen from '../screens/auth/RegisterScreen';
+import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
+import OTPVerificationScreen from '../screens/auth/OTPVerificationScreen';
+import CreateNewPasswordScreen from '../screens/auth/CreateNewPasswordScreen';
 import HomeScreen from '../screens/home/HomeScreen';
 import MyListingsScreen from '../screens/product/MyListingsScreen';
 import PostItemScreen from '../screens/product/PostItemScreen';
@@ -18,6 +22,7 @@ import ProductDetailScreen from '../screens/product/ProductDetailScreen';
 import AIEstimatorScreen from '../screens/ai/AIEstimatorScreen';
 import AIChatbotScreen from '../screens/ai/AIChatbotScreen';
 import SettingsScreen from '../screens/settings/SettingsScreen';
+
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -172,6 +177,22 @@ export default function AppNavigator() {
           }}
         >
           <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Register" component={RegisterScreen} />
+          <Stack.Screen
+            name="ForgotPassword"
+            component={ForgotPasswordScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="OTPVerification"
+            component={OTPVerificationScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="CreateNewPassword"
+            component={CreateNewPasswordScreen}
+            options={{ headerShown: false }}
+          />
         </Stack.Navigator>
       )}
     </NavigationContainer>
