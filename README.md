@@ -9,7 +9,7 @@
 
 | STT | Họ và tên | MSSV | Màn hình phụ trách chính | Công nghệ & Bằng chứng kỹ thuật |
 | :---: | :--- | :---: | :--- | :--- |
-| 1 | **Thành viên 1** (Leader) | SE123456 | `LoginScreen`, `UserProfileScreen` | Firebase Auth, ProfileContext, AsyncStorage, Git Setup |
+| 1 | **Thành viên 1** (Leader) | SE181639 | `LoginScreen`, `UserProfileScreen` | Firebase Auth, ProfileContext, AsyncStorage, Git Setup |
 | 2 | **Thành viên 2** | SE123457 | `HomeScreen`, `ProductDetailScreen` | React Navigation, FlatList Infinite Scroll, Search/Filter |
 | 3 | **Thành viên 3** | SE123458 | `PostItemScreen`, `MyListingsScreen` | Firestore CRUD, Expo Image Picker, Expo Location/Map |
 | 4 | **Thành viên 4** | SE123459 | `AIEstimatorScreen`, `AIChatbotScreen` | Gemini AI SDK, Prompt Engineering, Fallback UI |
