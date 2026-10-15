@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -14,18 +15,22 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { loginWithEmail, loginWithGoogle } from '../../services/authService';
 
 const getScaledFontSize = (size, scale) =>
   size * (typeof scale === 'number' ? scale : 1);
 
 export default function LoginScreen({ navigation }) {
   const { theme, isDarkMode, primaryColor, fontSizeScale } = useTheme();
-  const { login } = useAuth();
+  const { login, googleSignIn } = useAuth();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [notice, setNotice] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const surfaceColor = theme?.background || theme?.surface || '#f9f9fd';
   const textColor = theme?.text || theme?.onSurface || (isDarkMode ? '#f5f5f5' : '#1a1c1f');
@@ -40,6 +45,9 @@ export default function LoginScreen({ navigation }) {
     setIsSuccess(success);
   };
 
+  /**
+   * Handle Email/Password authentication
+   */
   const handleLogin = async () => {
     const trimmedEmail = email.trim();
 
@@ -58,10 +66,48 @@ export default function LoginScreen({ navigation }) {
       return;
     }
 
+    setNotice('');
+    setIsLoading(true);
+
     try {
-      await login(email, password);
+      // Connect to authService (or useAuth context wrapper)
+      if (login) {
+        await login(trimmedEmail, password);
+      } else {
+        await loginWithEmail(trimmedEmail, password);
+      }
+      showNotice('Đăng nhập thành công!', true);
     } catch (error) {
-      Alert.alert('Lỗi đăng nhập', error.message);
+      console.error('[LoginScreen] handleLogin error:', error);
+      Alert.alert('Lỗi đăng nhập', error.message || 'Không thể đăng nhập. Vui lòng thử lại.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Handle Google Sign-in flow
+   */
+  const handleGoogleSignIn = async () => {
+    setNotice('');
+    setIsGoogleLoading(true);
+
+    try {
+      // Connect to Google Sign-in workflow in authService / useAuth
+      if (googleSignIn) {
+        await googleSignIn();
+      } else {
+        await loginWithGoogle();
+      }
+      showNotice('Đăng nhập Google thành công!', true);
+    } catch (error) {
+      console.error('[LoginScreen] handleGoogleSignIn error:', error);
+      Alert.alert(
+        'Đăng nhập Google thất bại',
+        error.message || 'Không thể xác thực bằng tài khoản Google FPT.'
+      );
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
 
@@ -105,12 +151,18 @@ export default function LoginScreen({ navigation }) {
                 size={18}
                 color={isSuccess ? '#006b55' : accentColor}
               />
-              <Text style={[styles.noticeText, { color: isSuccess ? '#006b55' : textColor, fontSize: getScaledFontSize(12, fontSizeScale) }]}>
+              <Text
+                style={[
+                  styles.noticeText,
+                  { color: isSuccess ? '#006b55' : textColor, fontSize: getScaledFontSize(12, fontSizeScale) },
+                ]}
+              >
                 {notice}
               </Text>
             </View>
           ) : null}
 
+          {/* Email Input */}
           <View style={styles.field}>
             <View style={styles.labelRow}>
               <Text style={[styles.label, { color: textColor, fontSize: getScaledFontSize(12, fontSizeScale) }]}>
@@ -124,22 +176,31 @@ export default function LoginScreen({ navigation }) {
               <Ionicons name="mail-outline" size={20} color={mutedColor} style={styles.inputIcon} />
               <TextInput
                 autoCapitalize="none"
-                autoComplete="username"
+                autoComplete="email"
                 keyboardType="email-address"
+                editable={!isLoading && !isGoogleLoading}
                 onChangeText={setEmail}
                 placeholder="mssv@fpt.edu.vn"
                 placeholderTextColor={mutedColor}
-                style={[styles.input, { backgroundColor: inputColor, color: textColor, fontSize: getScaledFontSize(14, fontSizeScale) }]}
+                style={[
+                  styles.input,
+                  { backgroundColor: inputColor, color: textColor, fontSize: getScaledFontSize(14, fontSizeScale) },
+                ]}
                 value={email}
               />
               {email ? (
-                <Pressable accessibilityLabel="Xóa email" onPress={() => setEmail('')} style={styles.trailingButton}>
+                <Pressable
+                  accessibilityLabel="Xóa email"
+                  onPress={() => setEmail('')}
+                  style={styles.trailingButton}
+                >
                   <Ionicons name="close-circle" size={19} color={mutedColor} />
                 </Pressable>
               ) : null}
             </View>
           </View>
 
+          {/* Password Input */}
           <View style={styles.field}>
             <Text style={[styles.label, { color: textColor, fontSize: getScaledFontSize(12, fontSizeScale) }]}>
               Mật khẩu <Text style={{ color: accentColor }}>*</Text>
@@ -149,11 +210,15 @@ export default function LoginScreen({ navigation }) {
               <TextInput
                 autoCapitalize="none"
                 autoComplete="password"
+                editable={!isLoading && !isGoogleLoading}
                 onChangeText={setPassword}
                 placeholder="Nhập mật khẩu"
                 placeholderTextColor={mutedColor}
                 secureTextEntry={!isPasswordVisible}
-                style={[styles.input, { backgroundColor: inputColor, color: textColor, fontSize: getScaledFontSize(14, fontSizeScale) }]}
+                style={[
+                  styles.input,
+                  { backgroundColor: inputColor, color: textColor, fontSize: getScaledFontSize(14, fontSizeScale) },
+                ]}
                 value={password}
               />
               <Pressable
@@ -166,44 +231,110 @@ export default function LoginScreen({ navigation }) {
             </View>
           </View>
 
-          <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={styles.forgotButton}>
-            <Text style={[styles.actionText, { color: accentColor, fontSize: getScaledFontSize(12, fontSizeScale) }]}>Quên mật khẩu?</Text>
+          {/* Forgot Password */}
+          <TouchableOpacity
+            disabled={isLoading || isGoogleLoading}
+            onPress={() => navigation.navigate('ForgotPassword')}
+            style={styles.forgotButton}
+          >
+            <Text style={[styles.actionText, { color: accentColor, fontSize: getScaledFontSize(12, fontSizeScale) }]}>
+              Quên mật khẩu?
+            </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={handleLogin} style={[styles.primaryButton, { backgroundColor: accentColor }]}>
-            <Text style={[styles.primaryButtonText, { fontSize: getScaledFontSize(14, fontSizeScale) }]}>ĐĂNG NHẬP</Text>
-            <Ionicons name="arrow-forward" size={18} color="#ffffff" />
+          {/* Login Button with Loading State */}
+          <TouchableOpacity
+            disabled={isLoading || isGoogleLoading}
+            onPress={handleLogin}
+            style={[styles.primaryButton, { backgroundColor: accentColor, opacity: isLoading ? 0.8 : 1 }]}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#ffffff" size="small" />
+            ) : (
+              <>
+                <Text style={[styles.primaryButtonText, { fontSize: getScaledFontSize(14, fontSizeScale) }]}>
+                  ĐĂNG NHẬP
+                </Text>
+                <Ionicons name="arrow-forward" size={18} color="#ffffff" />
+              </>
+            )}
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={handleRegister} style={[styles.secondaryButton, { backgroundColor: inputColor }]}>
+          {/* Register Navigation */}
+          <TouchableOpacity
+            disabled={isLoading || isGoogleLoading}
+            onPress={handleRegister}
+            style={[styles.secondaryButton, { backgroundColor: inputColor }]}
+          >
             <Ionicons name="person-add-outline" size={18} color={mutedColor} />
-            <Text style={[styles.secondaryButtonText, { color: textColor, fontSize: getScaledFontSize(14, fontSizeScale) }]}>Đăng ký tài khoản mới</Text>
+            <Text
+              style={[
+                styles.secondaryButtonText,
+                { color: textColor, fontSize: getScaledFontSize(14, fontSizeScale) },
+              ]}
+            >
+              Đăng ký tài khoản mới
+            </Text>
           </TouchableOpacity>
         </View>
 
+        {/* Divider */}
         <View style={styles.dividerRow}>
           <View style={[styles.divider, { backgroundColor: borderColor }]} />
-          <Text style={[styles.dividerText, { color: mutedColor, fontSize: getScaledFontSize(12, fontSizeScale) }]}>Hoặc đăng nhập bằng</Text>
+          <Text style={[styles.dividerText, { color: mutedColor, fontSize: getScaledFontSize(12, fontSizeScale) }]}>
+            Hoặc đăng nhập bằng
+          </Text>
           <View style={[styles.divider, { backgroundColor: borderColor }]} />
         </View>
 
-        <TouchableOpacity onPress={() => showNotice('Đang chuyển hướng xác thực Google FPT Workspace...', true)} style={[styles.googleButton, { backgroundColor: cardColor }]}>
+        {/* Google Sign-in Button with Loading State */}
+        <TouchableOpacity
+          disabled={isLoading || isGoogleLoading}
+          onPress={handleGoogleSignIn}
+          style={[styles.googleButton, { backgroundColor: cardColor, opacity: isGoogleLoading ? 0.7 : 1 }]}
+        >
           <View style={styles.socialContent}>
-            <Ionicons name="logo-google" size={21} color="#4285f4" />
+            {isGoogleLoading ? (
+              <ActivityIndicator size="small" color="#4285f4" />
+            ) : (
+              <Ionicons name="logo-google" size={21} color="#4285f4" />
+            )}
             <View>
-              <Text style={[styles.socialTitle, { color: textColor, fontSize: getScaledFontSize(14, fontSizeScale) }]}>Google FPT Edu</Text>
-              <Text style={[styles.socialSubtitle, { color: mutedColor, fontSize: getScaledFontSize(10, fontSizeScale) }]}>@fpt.edu.vn workspace</Text>
+              <Text style={[styles.socialTitle, { color: textColor, fontSize: getScaledFontSize(14, fontSizeScale) }]}>
+                {isGoogleLoading ? 'Đang kết nối Google...' : 'Google FPT Edu'}
+              </Text>
+              <Text style={[styles.socialSubtitle, { color: mutedColor, fontSize: getScaledFontSize(10, fontSizeScale) }]}>
+                @fpt.edu.vn workspace
+              </Text>
             </View>
           </View>
           <Ionicons name="chevron-forward" size={16} color={accentColor} />
         </TouchableOpacity>
 
         <View style={[styles.badges, { backgroundColor: inputColor }]}>
-          <TrustBadge icon="shield-checkmark-outline" text="Xác thực FPT ID" color="#006b55" mutedColor={mutedColor} fontSizeScale={fontSizeScale} />
+          <TrustBadge
+            icon="shield-checkmark-outline"
+            text="Xác thực FPT ID"
+            color="#006b55"
+            mutedColor={mutedColor}
+            fontSizeScale={fontSizeScale}
+          />
           <View style={[styles.badgeDivider, { backgroundColor: borderColor }]} />
-          <TrustBadge icon="hand-left-outline" text="Giao dịch nội khu" color={accentColor} mutedColor={mutedColor} fontSizeScale={fontSizeScale} />
+          <TrustBadge
+            icon="hand-left-outline"
+            text="Giao dịch nội khu"
+            color={accentColor}
+            mutedColor={mutedColor}
+            fontSizeScale={fontSizeScale}
+          />
           <View style={[styles.badgeDivider, { backgroundColor: borderColor }]} />
-          <TrustBadge icon="shield-outline" text="0% Phí sàn" color="#3351ff" mutedColor={mutedColor} fontSizeScale={fontSizeScale} />
+          <TrustBadge
+            icon="shield-outline"
+            text="0% Phí sàn"
+            color="#3351ff"
+            mutedColor={mutedColor}
+            fontSizeScale={fontSizeScale}
+          />
         </View>
 
         <Text style={[styles.footerText, { color: mutedColor, fontSize: getScaledFontSize(12, fontSizeScale) }]}>
@@ -218,7 +349,9 @@ function TrustBadge({ icon, text, color, mutedColor, fontSizeScale }) {
   return (
     <View style={styles.badge}>
       <Ionicons name={icon} size={17} color={color} />
-      <Text style={[styles.badgeText, { color: mutedColor, fontSize: getScaledFontSize(9, fontSizeScale) }]}>{text}</Text>
+      <Text style={[styles.badgeText, { color: mutedColor, fontSize: getScaledFontSize(9, fontSizeScale) }]}>
+        {text}
+      </Text>
     </View>
   );
 }
@@ -227,8 +360,23 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 32 },
   header: { alignItems: 'center', marginBottom: 24, paddingTop: 8 },
-  logo: { alignItems: 'center', borderRadius: 16, borderWidth: 1, justifyContent: 'center', marginBottom: 12, padding: 14 },
-  trustBadge: { alignItems: 'center', borderRadius: 20, flexDirection: 'row', gap: 5, marginBottom: 8, paddingHorizontal: 12, paddingVertical: 5 },
+  logo: {
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    justifyContent: 'center',
+    marginBottom: 12,
+    padding: 14,
+  },
+  trustBadge: {
+    alignItems: 'center',
+    borderRadius: 20,
+    flexDirection: 'row',
+    gap: 5,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
   trustText: { fontWeight: '700', letterSpacing: 0.5 },
   title: { fontWeight: '700', letterSpacing: -0.5 },
   subtitle: { marginTop: 4, textAlign: 'center' },
@@ -245,18 +393,46 @@ const styles = StyleSheet.create({
   trailingButton: { padding: 8, position: 'absolute', right: 5 },
   forgotButton: { alignSelf: 'flex-end', paddingVertical: 2 },
   actionText: { fontWeight: '600' },
-  primaryButton: { alignItems: 'center', borderRadius: 12, flexDirection: 'row', gap: 8, height: 48, justifyContent: 'center' },
+  primaryButton: {
+    alignItems: 'center',
+    borderRadius: 12,
+    flexDirection: 'row',
+    gap: 8,
+    height: 48,
+    justifyContent: 'center',
+  },
   primaryButtonText: { color: '#ffffff', fontWeight: '700', letterSpacing: 1 },
-  secondaryButton: { alignItems: 'center', borderRadius: 12, flexDirection: 'row', gap: 8, height: 48, justifyContent: 'center' },
+  secondaryButton: {
+    alignItems: 'center',
+    borderRadius: 12,
+    flexDirection: 'row',
+    gap: 8,
+    height: 48,
+    justifyContent: 'center',
+  },
   secondaryButtonText: { fontWeight: '600' },
   dividerRow: { alignItems: 'center', flexDirection: 'row', gap: 12, marginVertical: 24, paddingHorizontal: 8 },
   divider: { flex: 1, height: 1 },
   dividerText: { fontWeight: '600' },
-  googleButton: { alignItems: 'center', borderRadius: 12, flexDirection: 'row', justifyContent: 'space-between', padding: 16 },
+  googleButton: {
+    alignItems: 'center',
+    borderRadius: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 16,
+  },
   socialContent: { alignItems: 'center', flexDirection: 'row', gap: 12 },
   socialTitle: { fontWeight: '600' },
   socialSubtitle: { marginTop: 2 },
-  badges: { alignItems: 'center', borderRadius: 12, flexDirection: 'row', justifyContent: 'space-around', marginTop: 24, paddingHorizontal: 8, paddingVertical: 12 },
+  badges: {
+    alignItems: 'center',
+    borderRadius: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 24,
+    paddingHorizontal: 8,
+    paddingVertical: 12,
+  },
   badge: { alignItems: 'center', flex: 1, gap: 4 },
   badgeText: { textAlign: 'center' },
   badgeDivider: { height: 20, width: 1 },

@@ -1,68 +1,59 @@
 import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
-  createUserWithEmailAndPassword,
-  GoogleAuthProvider,
-  onAuthStateChanged,
-  signInWithCredential,
-  signInWithEmailAndPassword,
-  signOut,
-  updateProfile,
-} from 'firebase/auth';
-import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
-//import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { auth, db, USERS_COLLECTION } from '../services/firebaseConfig';
-
-const USER_TOKEN_KEY = 'userToken';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../config/firebaseConfig';
+import authService, {
+  loginWithEmail as serviceLoginWithEmail,
+  loginWithGoogle as serviceLoginWithGoogle,
+  registerWithEmail as serviceRegisterWithEmail,
+  logout as serviceLogout,
+  formatAuthErrorMessage,
+} from '../services/authService';
+import { TOKEN_STORAGE_KEY, USER_DATA_KEY } from '../services/api/apiClient';
 
 export const AuthContext = createContext(null);
-
-function logAuthError(operation, error) {
-  console.error(`[AuthContext] ${operation} failed:`, error);
-}
-
-function showAuthError(operation, error) {
-  const messages = {
-    'auth/email-already-in-use': 'Email đã tồn tại',
-    'auth/invalid-email': 'Email không hợp lệ',
-    'auth/invalid-credential': 'Sai mật khẩu',
-    'auth/user-not-found': 'Tài khoản không tồn tại',
-    'auth/wrong-password': 'Sai mật khẩu',
-  };
-
-  Alert.alert(
-    `${operation} thất bại`,
-    messages[error?.code] || 'Đã xảy ra lỗi. Vui lòng thử lại.',
-  );
-}
-
-async function persistUserToken(firebaseUser) {
-  const token = await firebaseUser.getIdToken();
-  await AsyncStorage.setItem(USER_TOKEN_KEY, token);
-  return token;
-}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [userToken, setUserToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Restore authenticated session on initial app load
   useEffect(() => {
+    const restoreSession = async () => {
+      try {
+        const storedToken = await AsyncStorage.getItem(TOKEN_STORAGE_KEY);
+        const storedUserData = await AsyncStorage.getItem(USER_DATA_KEY);
+
+        if (storedToken) {
+          setUserToken(storedToken);
+          if (storedUserData) {
+            setUser(JSON.parse(storedUserData));
+          }
+        }
+      } catch (err) {
+        console.warn('[AuthContext] Failed to restore session from AsyncStorage:', err);
+      }
+    };
+
+    restoreSession();
+
+    // Listen to Firebase auth state changes
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
-          const token = await persistUserToken(firebaseUser);
-          setUser(firebaseUser);
+          const storedToken = await AsyncStorage.getItem(TOKEN_STORAGE_KEY);
+          const token = storedToken || (await firebaseUser.getIdToken());
+          setUser((currentUser) => currentUser || firebaseUser);
           setUserToken(token);
         } else {
           setUser(null);
           setUserToken(null);
-          await AsyncStorage.removeItem(USER_TOKEN_KEY);
+          await AsyncStorage.multiRemove([TOKEN_STORAGE_KEY, USER_DATA_KEY]);
         }
       } catch (error) {
-        logAuthError('Restoring authentication session', error);
-        showAuthError('Khôi phục phiên đăng nhập', error);
+        console.error('[AuthContext] Error syncing auth state:', error);
         setUser(null);
         setUserToken(null);
       } finally {
@@ -75,46 +66,28 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (email, password) => {
     setLoading(true);
-
     try {
-      const result = await signInWithEmailAndPassword(auth, email.trim(), password);
-      const token = await persistUserToken(result.user);
+      const result = await serviceLoginWithEmail(email, password);
       setUser(result.user);
-      setUserToken(token);
-      return { user: result.user, token };
+      setUserToken(result.token);
+      return result;
     } catch (error) {
-      logAuthError('Login', error);
-      showAuthError('Đăng nhập', error);
+      Alert.alert('Đăng nhập thất bại', error.message || formatAuthErrorMessage(error));
       throw error;
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const register = useCallback(async (email, password, name) => {
+  const register = useCallback(async (email, password, fullName) => {
     setLoading(true);
-
     try {
-      const result = await createUserWithEmailAndPassword(auth, email.trim(), password);
-
-      await setDoc(doc(db, USERS_COLLECTION, result.user.uid), {
-        email: result.user.email || email.trim(),
-        fullName: name,
-        role: 'student',
-        createdAt: serverTimestamp(),
-      });
-
-      if (name?.trim()) {
-        await updateProfile(result.user, { displayName: name.trim() });
-      }
-
-      const token = await persistUserToken(result.user);
+      const result = await serviceRegisterWithEmail(email, password, fullName);
       setUser(result.user);
-      setUserToken(token);
-      return { user: result.user, token };
+      setUserToken(result.token);
+      return result;
     } catch (error) {
-      logAuthError('Registration', error);
-      showAuthError('Đăng ký', error);
+      Alert.alert('Đăng ký thất bại', error.message || formatAuthErrorMessage(error));
       throw error;
     } finally {
       setLoading(false);
@@ -123,30 +96,13 @@ export function AuthProvider({ children }) {
 
   const googleSignIn = useCallback(async () => {
     setLoading(true);
-
     try {
-      GoogleSignin.configure({
-        webClientId: process.env.EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID,
-      });
-      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      const response = await GoogleSignin.signIn();
-      const idToken = response.data?.idToken || response.idToken;
-
-      if (!idToken) {
-        throw new Error('Google Sign-In did not return an ID token.');
-      }
-
-      const result = await signInWithCredential(
-        auth,
-        GoogleAuthProvider.credential(idToken),
-      );
-      const token = await persistUserToken(result.user);
+      const result = await serviceLoginWithGoogle();
       setUser(result.user);
-      setUserToken(token);
-      return { user: result.user, token };
+      setUserToken(result.token);
+      return result;
     } catch (error) {
-      logAuthError('Google sign-in', error);
-      showAuthError('Đăng nhập Google', error);
+      Alert.alert('Đăng nhập Google thất bại', error.message || formatAuthErrorMessage(error));
       throw error;
     } finally {
       setLoading(false);
@@ -155,15 +111,12 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(async () => {
     setLoading(true);
-
     try {
-      await signOut(auth);
-      await AsyncStorage.removeItem(USER_TOKEN_KEY);
+      await serviceLogout();
       setUser(null);
       setUserToken(null);
     } catch (error) {
-      logAuthError('Logout', error);
-      showAuthError('Đăng xuất', error);
+      Alert.alert('Đăng xuất thất bại', error.message);
       throw error;
     } finally {
       setLoading(false);
