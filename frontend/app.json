@@ -10,7 +10,8 @@
     ],
     "plugins": [
       "expo-asset",
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      "expo-font"
     ]
   }
 }
