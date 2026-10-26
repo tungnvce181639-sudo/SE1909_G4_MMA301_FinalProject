@@ -131,7 +131,7 @@ function MainStackNavigator() {
       }}
     >
       <Stack.Screen name="MainTabs" component={TabNavigator} options={{ headerShown: false }} />
-      <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ title: 'Chi tiết sản phẩm' }} />
+      <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ headerShown: false }} />
       <Stack.Screen
         name="AIEstimator"
         component={AIEstimatorScreen}

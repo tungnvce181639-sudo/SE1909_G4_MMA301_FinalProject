@@ -3,7 +3,6 @@ import {
   FlatList,
   Image,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -24,74 +24,16 @@ const categories = [
   { id: 'free', label: 'Tặng đồ\nFree 0đ', icon: 'heart-outline', color: '#ba1a1a', background: '#ffdad6' },
 ];
 
-const products = [
-  {
-    id: 'prf192-pro197',
-    title: 'Combo Giáo trình Kỹ thuật phần mềm K18 (PRF192 + PRO197)',
-    price: '95.000đ',
-    location: 'KTX Dom A • 10p trước',
-    seller: 'Minh Quân K17',
-    badge: 'Mới 95%',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD2zQw7lE7lC1XQG9xT4G0b5Q0w2kLr9d4z5Xg',
-    icon: 'business-outline',
-    verified: true,
-  },
-  {
-    id: 'lock-lock-rice-cooker',
-    title: 'Nồi cơm điện mini Lock&Lock 0.8L (Dùng tốt phòng trọ)',
-    price: '180.000đ',
-    location: 'Làng ĐH / Dom E • 25p',
-    seller: 'Bảo Ngọc K18',
-    badge: 'Likenew',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBp4I_Jzyy3psxvayq0jXwjVhbvQvySd8bQ_Ya9xQSP1e2w2fhSNzyU6y-AIhdZwGkrFJNb6vk_0WzWy7dXbVa2M_rlghYUj45UXLYwBfYmGjHXIXQXZMPGJ__HeouqHpx_dWjCT14So_ClN3iUuzZqS9lhCrAxYaZWk-KQ0VGJ5qtb10BmMq1g7O_g-7NCBBJtain6Y9_KgngaBPFnOtOWt_3Je6CTAeCxzuYy_zecXNvsVx56v6QHsQ',
-    icon: 'business-outline',
-    verified: false,
-  },
-  {
-    id: 'dell-monitor',
-    title: 'Màn hình Dell 24 inch IPS FHD (Kèm cáp HDMI zin)',
-    price: '1.250.000đ',
-    location: 'KTX Dom B - P.304',
-    seller: 'Huy Hoàng IT',
-    badge: '98% FHD',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAW2_7vC-eDfCZ_ZMGZg62QPfM8Jj3uyrlDjuPVh8hq7rtDj4387lZmXw9eOtE0wcM6Cnj7pDCcUT8df04znHuaMtzFZCikJg1B3ppq1BLmm8S6aDE6-RVZVXcS6hFkJ3a7zdPlHG-S5QZ6B0bgTARGYWjruTPqNrhsM2Ar93Ls6fpP8lFbkn1_nAiU856QyywGkloF6QFHLa5PwY9nGj2Yl0XkDAtFpTKasXBA2aNCv-8t5oScvhPNaA',
-    icon: 'business-outline',
-    verified: true,
-  },
-  {
-    id: 'nijia-electric-bike',
-    title: 'Xe đạp điện Nijia chính chủ, ắc quy mới thay 2 tháng',
-    price: '2.800.000đ',
-    location: 'Bãi xe KTX • 2h',
-    seller: 'Đức Thắng K16',
-    badge: 'Chính chủ',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBHIWiWyDGtJ7AAB5bB6ZEQRi7sz3-LuvBPxAPPqdHwbgpxdF_xKEvqOh5F-Pi9tsC6hrINTOLR3zlSR-iXJPT3SW_L12jSMFdB5gUXqk84IW7yryPFgQweeuzlJAlAhaW8zOIQCxtgQP6jLIy45SOHuJBbTWnPq-5gVL86SwoThL9bIKEc_rHnwaLHrSjIcrbvu2wDYoF02v-0uMCI4jw6GWH3VAP2zhPsHqMN0mrrwkNjw76-1jKeRA',
-    icon: 'car-outline',
-    verified: false,
-  },
-  {
-    id: 'foldable-desk-fan',
-    title: 'Bàn học gấp gọn kèm quạt mini cho phòng trọ',
-    price: '320.000đ',
-    location: 'KTX Dom C • 3h',
-    seller: 'Lan Anh K19',
-    badge: 'Tiện dụng',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC3H8pQ4tF7rL9mN2sV6xY1zK5qW8eR0tU3iO6pA9sD4fG7hJ2kL5mN8bQ1wE4rT7yU0iO3pA6sD9fG2hJ5kL8mN1bQ4wE7rT0',
-    icon: 'business-outline',
-    verified: false,
-  },
-  {
-    id: 'sony-wh-ch520',
-    title: 'Tai nghe chống ồn Sony WH-CH520 màu kem chính hãng',
-    price: '650.000đ',
-    location: 'KTX Dom A • 5h',
-    seller: 'Thanh Tùng Graphic',
-    badge: 'Fullbox 99%',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBb7WusnAyatiRwXKhcrw4S_UZu0vG8_v3I8uQOnG9t6B17UfxM5C_p38bm1lOEfeR-jzISFA6yT1H5GEGMjOAe5t30O-Rtl9wmQbuhh1wgK07D2g5jTZWomSbVDiusj7DxQ4BKNYCtlyJywnz685lIQ6TlFpp3Qc5gegJj7vNt4sgKhuBT0D21bwItof2fHvMf6VZsr4LHIqjtxh0x_RRmiF_93VyK4mo91qqpu5tXsDDYyHlG1Pj2Hg',
-    icon: 'business-outline',
-    verified: true,
-  },
-];
+import { MOCK_PRODUCTS } from '../../services/api/productApi';
+
+const products = MOCK_PRODUCTS.map((p) => ({
+  ...p,
+  price: p.priceDisplay || `${p.price?.toLocaleString('vi-VN')} ₫`,
+  image: Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : p.image,
+  seller: typeof p.seller === 'object' ? p.seller.name : p.seller,
+  verified: typeof p.seller === 'object' ? p.seller.verified : true,
+  icon: p.category === 'books' ? 'book-outline' : p.category === 'vehicles' ? 'bicycle-outline' : 'business-outline',
+}));
 
 const filters = ['Tất cả', 'Gần bạn (KTX)', 'Giá < 100k'];
 
@@ -100,6 +42,7 @@ export default function HomeScreen({ navigation }) {
   const [search, setSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState(filters[0]);
+  const [selectedCategory, setSelectedCategory] = useState(null);
   const [favorites, setFavorites] = useState([]);
 
   const onRefresh = useCallback(() => {
@@ -113,13 +56,42 @@ export default function HomeScreen({ navigation }) {
     ));
   };
 
+  const handleProductPress = (item) => {
+    try {
+      const parent = navigation.getParent();
+      if (parent && typeof parent.navigate === 'function') {
+        parent.navigate('ProductDetail', { productId: item.id, product: item });
+      } else {
+        navigation.navigate('ProductDetail', { productId: item.id, product: item });
+      }
+    } catch (err) {
+      navigation.navigate('ProductDetail', { productId: item.id, product: item });
+    }
+  };
+
+  const displayedProducts = products.filter((p) => {
+    const matchSearch = search ? p.title.toLowerCase().includes(search.toLowerCase()) : true;
+    const matchFilter =
+      selectedFilter === 'Giá < 100k'
+        ? Number(String(p.price).replace(/[^0-9]/g, '')) <= 100000
+        : selectedFilter === 'Gần bạn (KTX)'
+        ? (p.location || '').includes('KTX') || (p.location || '').includes('Dom')
+        : true;
+    const matchCategory = selectedCategory
+      ? p.category === selectedCategory ||
+        (selectedCategory === 'home' && (p.category === 'furniture' || p.category === 'home')) ||
+        (selectedCategory === 'furniture' && (p.category === 'furniture' || p.category === 'home'))
+      : true;
+    return matchSearch && matchFilter && matchCategory;
+  });
+
   const renderProduct = ({ item }) => {
     const isFavorite = favorites.includes(item.id);
     return (
       <TouchableOpacity
-        activeOpacity={0.85}
+        activeOpacity={0.7}
         style={[styles.productCard, { backgroundColor: theme.card }]}
-        onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+        onPress={() => handleProductPress(item)}
       >
         <View style={styles.productImageContainer}>
           <Image source={{ uri: item.image }} style={styles.productImage} />
@@ -155,13 +127,34 @@ export default function HomeScreen({ navigation }) {
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
       <FlatList
-        data={products}
+        data={displayedProducts}
         keyExtractor={(item) => item.id}
         numColumns={2}
         renderItem={renderProduct}
         columnWrapperStyle={styles.productRow}
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={primaryColor} />}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Ionicons name="file-tray-outline" size={54} color={theme.textSecondary} />
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>Không tìm thấy sản phẩm nào</Text>
+            <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
+              {selectedCategory
+                ? 'Chưa có sản phẩm phù hợp trong danh mục này.'
+                : 'Thử tìm kiếm với từ khóa khác hoặc xóa bộ lọc.'}
+            </Text>
+            <TouchableOpacity
+              style={[styles.emptyResetBtn, { backgroundColor: primaryColor }]}
+              onPress={() => {
+                setSelectedCategory(null);
+                setSelectedFilter(filters[0]);
+                setSearch('');
+              }}
+            >
+              <Text style={styles.emptyResetBtnText}>Xem tất cả sản phẩm</Text>
+            </TouchableOpacity>
+          </View>
+        }
         ListHeaderComponent={(
           <>
             <View style={styles.header}>
@@ -240,21 +233,75 @@ export default function HomeScreen({ navigation }) {
 
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: theme.text, fontSize: 20 * fontSizeScale }]}>Danh mục nổi bật</Text>
-              <TouchableOpacity style={styles.seeAll}>
-                <Text style={[styles.seeAllText, { color: primaryColor }]}>Tất cả</Text>
-                <Ionicons name="chevron-forward" size={16} color={primaryColor} />
+              <TouchableOpacity
+                style={styles.seeAll}
+                onPress={() => setSelectedCategory(null)}
+              >
+                <Text style={[styles.seeAllText, { color: primaryColor }]}>
+                  {selectedCategory ? 'Bỏ chọn' : 'Tất cả'}
+                </Text>
+                <Ionicons name={selectedCategory ? 'close-circle-outline' : 'chevron-forward'} size={16} color={primaryColor} />
               </TouchableOpacity>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryList}>
-              {categories.map((category) => (
-                <TouchableOpacity key={category.id} style={styles.categoryItem}>
-                  <View style={[styles.categoryIcon, { backgroundColor: isDarkMode ? theme.card : category.background }]}>
-                    <Ionicons name={category.icon} size={26} color={isDarkMode ? primaryColor : category.color} />
-                  </View>
-                  <Text style={[styles.categoryLabel, { color: theme.text }]}>{category.label}</Text>
-                </TouchableOpacity>
-              ))}
+              {categories.map((category) => {
+                const isSelected = selectedCategory === category.id;
+                return (
+                  <TouchableOpacity
+                    key={category.id}
+                    activeOpacity={0.7}
+                    style={styles.categoryItem}
+                    onPress={() => setSelectedCategory((prev) => (prev === category.id ? null : category.id))}
+                  >
+                    <View
+                      style={[
+                        styles.categoryIcon,
+                        {
+                          backgroundColor: isDarkMode ? theme.card : category.background,
+                          borderColor: isSelected ? primaryColor : 'transparent',
+                          borderWidth: isSelected ? 2.5 : 0,
+                          transform: [{ scale: isSelected ? 1.08 : 1 }],
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name={category.icon}
+                        size={26}
+                        color={isSelected ? primaryColor : isDarkMode ? primaryColor : category.color}
+                      />
+                      {isSelected && (
+                        <View style={[styles.selectedCategoryBadge, { backgroundColor: primaryColor }]}>
+                          <Ionicons name="checkmark" size={10} color="#ffffff" />
+                        </View>
+                      )}
+                    </View>
+                    <Text
+                      style={[
+                        styles.categoryLabel,
+                        {
+                          color: isSelected ? primaryColor : theme.text,
+                          fontWeight: isSelected ? '700' : '400',
+                        },
+                      ]}
+                    >
+                      {category.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
+
+            {selectedCategory && (
+              <View style={[styles.activeCategoryBar, { backgroundColor: `${primaryColor}15`, borderColor: `${primaryColor}35` }]}>
+                <Ionicons name="funnel" size={15} color={primaryColor} />
+                <Text style={[styles.activeCategoryText, { color: theme.text }]}>
+                  Đang lọc: <Text style={{ fontWeight: '700', color: primaryColor }}>{categories.find((c) => c.id === selectedCategory)?.label.replace('\n', ' ')}</Text> ({displayedProducts.length} sản phẩm)
+                </Text>
+                <TouchableOpacity onPress={() => setSelectedCategory(null)} style={styles.clearCategoryBtn}>
+                  <Ionicons name="close-circle" size={18} color={primaryColor} />
+                </TouchableOpacity>
+              </View>
+            )}
 
             <View style={styles.feedHeader}>
               <View style={styles.feedTitleRow}>
@@ -338,4 +385,62 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   metaText: { flex: 1, fontSize: 10 },
   footerText: { textAlign: 'center', fontSize: 12, paddingVertical: 18 },
+  selectedCategoryBadge: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#ffffff',
+  },
+  activeCategoryBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+  activeCategoryText: {
+    flex: 1,
+    fontSize: 13,
+  },
+  clearCategoryBtn: {
+    padding: 2,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 20,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginTop: 14,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 18,
+  },
+  emptyResetBtn: {
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  emptyResetBtnText: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 13,
+  },
 });
