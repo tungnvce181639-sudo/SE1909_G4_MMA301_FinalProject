@@ -12,6 +12,8 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { validatePassword, validatePasswordMatch } from '../../utils/validation';
+import apiClient from '../../services/api/apiClient';
 
 export default function CreateNewPasswordScreen({ route, navigation }) {
   const email = route?.params?.email;
@@ -20,6 +22,7 @@ export default function CreateNewPasswordScreen({ route, navigation }) {
   const [isNewPasswordVisible, setIsNewPasswordVisible] = useState(false);
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState({});
 
   const passwordStrength = [
     newPassword.length >= 8,
@@ -28,36 +31,30 @@ export default function CreateNewPasswordScreen({ route, navigation }) {
   ].filter(Boolean).length;
 
   const handleUpdatePassword = async () => {
-    if (!newPassword.trim() || !confirmPassword.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ thông tin');
+    // Reset errors
+    setErrors({});
+
+    // Validate password
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.isValid) {
+      setErrors((prev) => ({ ...prev, newPassword: passwordValidation.error }));
       return;
     }
 
-    if (newPassword.length < 6) {
-      Alert.alert('Lỗi', 'Mật khẩu phải có ít nhất 6 ký tự.');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      Alert.alert('Lỗi', 'Mật khẩu xác nhận không khớp.');
+    // Validate password match
+    const matchValidation = validatePasswordMatch(newPassword, confirmPassword);
+    if (!matchValidation.isValid) {
+      setErrors((prev) => ({ ...prev, confirmPassword: matchValidation.error }));
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://10.0.2.2:5000/api/auth/reset-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, newPassword }),
+      const response = await apiClient.post('/auth/reset-password', {
+        email,
+        newPassword,
       });
-      const data = response.ok ? null : await response.json();
-
-      if (!response.ok && !data?.success) {
-        throw new Error('Password update failed');
-      }
 
       Alert.alert('Thành công', 'Mật khẩu đã được cập nhật thành công!', [
         {
@@ -66,7 +63,8 @@ export default function CreateNewPasswordScreen({ route, navigation }) {
         },
       ]);
     } catch (error) {
-      Alert.alert('Lỗi', 'Không thể cập nhật mật khẩu. Vui lòng thử lại.');
+      console.error('[CreateNewPasswordScreen] Error:', error);
+      Alert.alert('Lỗi', error.message || 'Không thể cập nhật mật khẩu. Vui lòng thử lại.');
     } finally {
       setIsLoading(false);
     }
@@ -130,7 +128,9 @@ export default function CreateNewPasswordScreen({ route, navigation }) {
               isVisible={isNewPasswordVisible}
               onToggleVisibility={() => setIsNewPasswordVisible((visible) => !visible)}
               icon="lock-closed-outline"
+              error={errors.newPassword}
             />
+            {errors.newPassword ? <Text style={styles.errorText}>{errors.newPassword}</Text> : null}
 
             <View style={styles.strengthSection}>
               <View style={styles.strengthBars}>
@@ -160,7 +160,9 @@ export default function CreateNewPasswordScreen({ route, navigation }) {
               isVisible={isConfirmPasswordVisible}
               onToggleVisibility={() => setIsConfirmPasswordVisible((visible) => !visible)}
               icon="shield-checkmark-outline"
+              error={errors.confirmPassword}
             />
+            {errors.confirmPassword ? <Text style={styles.errorText}>{errors.confirmPassword}</Text> : null}
 
             <View style={styles.criteriaCard}>
               <Text style={styles.criteriaTitle}>TIÊU CHUẨN AN TOÀN FPT EDU</Text>
@@ -224,6 +226,7 @@ function PasswordField({
   isVisible,
   onToggleVisibility,
   icon,
+  error,
 }) {
   return (
     <View style={styles.field}>
@@ -236,7 +239,7 @@ function PasswordField({
           placeholder={placeholder}
           placeholderTextColor="#8c7166"
           secureTextEntry={secureTextEntry}
-          style={styles.input}
+          style={[styles.input, error && styles.inputError]}
           value={value}
         />
         <TouchableOpacity
@@ -290,7 +293,9 @@ const styles = StyleSheet.create({
   inputWrapper: { flexDirection: 'row', alignItems: 'center', minHeight: 50, borderRadius: 12, backgroundColor: '#f3f3f7', paddingHorizontal: 14 },
   inputIcon: { marginRight: 10 },
   input: { flex: 1, color: '#1a1c1f', fontSize: 14, paddingVertical: 12 },
+  inputError: { borderWidth: 1, borderColor: '#ba1a1a' },
   visibilityButton: { padding: 5 },
+  errorText: { color: '#ba1a1a', fontSize: 11, marginTop: 4, fontWeight: '500' },
   strengthSection: { gap: 6, marginTop: -4 },
   strengthBars: { flexDirection: 'row', gap: 8 },
   strengthBar: { flex: 1, height: 6, borderRadius: 3, backgroundColor: '#e2e2e6' },

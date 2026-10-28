@@ -8,15 +8,6 @@ import {
 import { getFirestore } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Safely load GoogleSignin in Expo Go / native / web environments
-let GoogleSignin = null;
-try {
-  const googleSigninModule = require('@react-native-google-signin/google-signin');
-  GoogleSignin = googleSigninModule.GoogleSignin;
-} catch (err) {
-  console.warn('[firebaseConfig] GoogleSignin native module not available:', err?.message);
-}
-
 // Firebase configuration from environment variables or project defaults
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || 'AIzaSyDoMBd4FWfXK1E6yEHGHk0RO4WNmaVL8Ag',
@@ -49,25 +40,5 @@ const db = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
 export const USERS_COLLECTION = 'users';
 
-// Configure Google Sign-In with webClientId for Google OAuth ID Token retrieval
-export const configureGoogleSignIn = () => {
-  if (!GoogleSignin) {
-    console.warn('[firebaseConfig] GoogleSignin module is not installed or supported in this runtime.');
-    return;
-  }
-
-  try {
-    GoogleSignin.configure({
-      webClientId:
-        process.env.EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID ||
-        '225538325402-examplewebclientid.apps.googleusercontent.com',
-      offlineAccess: true,
-      scopes: ['profile', 'email'],
-    });
-  } catch (err) {
-    console.warn('[firebaseConfig] GoogleSignin configuration error:', err?.message);
-  }
-};
-
-export { app, auth, db, GoogleSignin };
+export { app, auth, db };
 export default app;

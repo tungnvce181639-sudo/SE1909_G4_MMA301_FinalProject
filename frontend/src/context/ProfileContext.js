@@ -11,6 +11,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useAuth } from './AuthContext';
 import { db, USERS_COLLECTION } from '../services/firebaseConfig';
+import profileApi from '../services/api/profileApi';
 
 const ProfileContext = createContext(null);
 
@@ -94,12 +95,40 @@ export function ProfileProvider({ children, initialProfile = defaultProfile }) {
     }
 
     try {
+      // Try to update via backend API first
+      const apiUpdates = {
+        fullName: normalizedUpdates.fullName,
+        phoneNumber: normalizedUpdates.phone || normalizedUpdates.phoneNumber,
+        avatarUrl: normalizedUpdates.avatarUrl,
+      };
+
+      // Remove undefined values
+      Object.keys(apiUpdates).forEach(key => {
+        if (apiUpdates[key] === undefined) {
+          delete apiUpdates[key];
+        }
+      });
+
+      // Only call API if there are valid updates
+      if (Object.keys(apiUpdates).length > 0) {
+        await profileApi.updateProfile(apiUpdates);
+      }
+
+      // Also update Firestore as fallback/sync
       await setDoc(doc(db, USERS_COLLECTION, user.uid), normalizedUpdates, { merge: true });
       setProfile((currentProfile) => ({ ...currentProfile, ...normalizedUpdates }));
       return normalizedUpdates;
     } catch (error) {
       console.error('[ProfileContext] Updating profile failed:', error);
-      throw error;
+      // If API fails, still try to update Firestore
+      try {
+        await setDoc(doc(db, USERS_COLLECTION, user.uid), normalizedUpdates, { merge: true });
+        setProfile((currentProfile) => ({ ...currentProfile, ...normalizedUpdates }));
+        return normalizedUpdates;
+      } catch (firestoreError) {
+        console.error('[ProfileContext] Firestore update also failed:', firestoreError);
+        throw error;
+      }
     }
   }, [user]);
 

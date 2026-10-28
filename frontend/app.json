@@ -10,7 +10,10 @@
     ],
     "plugins": [
       "expo-asset",
-      "@react-native-google-signin/google-signin"
-    ]
+      "expo-font"
+    ],
+    "android": {
+      "package": "com.tungnv123.smartcampusmarket"
+    }
   }
 }
