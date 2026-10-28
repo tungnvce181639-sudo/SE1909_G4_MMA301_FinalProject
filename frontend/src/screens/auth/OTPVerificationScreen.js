@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -10,15 +10,30 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useCountdown } from '../../hooks/useCountdown';
+import { useAuth } from '../../context/AuthContext';
+import apiClient from '../../services/api/apiClient';
 
 const OTP_LENGTH = 6;
 
 export default function OTPVerificationScreen({ route, navigation }) {
-  const { email, actualOTP } = route.params;
+  const { email, actualOTP, registrationData, isRegistration } = route.params || {};
+  const { register } = useAuth();
   const [otp, setOtp] = useState(Array(OTP_LENGTH).fill(''));
   const inputRefs = useRef([]);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+
+  const { formattedTime, isRunning, start, reset } = useCountdown(120, () => {
+    // Timer expired callback
+  });
+
+  useEffect(() => {
+    start();
+  }, [start]);
 
   const handleOtpChange = (value, index) => {
     const digit = value.replace(/\D/g, '').slice(-1);
@@ -41,19 +56,61 @@ export default function OTPVerificationScreen({ route, navigation }) {
     }
   };
 
-  const handleVerifyOTP = () => {
-    if (otp.join('') === actualOTP) {
-      navigation.navigate('CreateNewPassword', { email: email });
+  const handleVerifyOTP = async () => {
+    if (otp.join('') !== actualOTP) {
+      Alert.alert('Mã OTP không chính xác', 'Vui lòng kiểm tra lại mã trong email của bạn.');
       return;
     }
 
-    Alert.alert(
-      'Mã OTP không chính xác',
-      'Vui lòng kiểm tra lại mã trong email của bạn.',
-    );
+    setIsVerifying(true);
+
+    try {
+      if (isRegistration && registrationData) {
+        // Registration flow: proceed with registration
+        await register(registrationData.email, registrationData.password, registrationData.fullName);
+        Alert.alert('Thành công', 'Đăng ký tài khoản thành công!', [
+          {
+            text: 'OK',
+            onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Login' }] }),
+          },
+        ]);
+      } else {
+        // Password reset flow: verify OTP with backend
+        await apiClient.post('/auth/verify-otp', { email, otp: otp.join('') });
+        navigation.navigate('CreateNewPassword', { email: email });
+      }
+    } catch (error) {
+      console.error('[OTPVerificationScreen] Error:', error);
+      Alert.alert('Lỗi', error.message || 'Xác thực thất bại. Vui lòng thử lại.');
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
-  const handleResendOTP = () => {};
+  const handleResendOTP = async () => {
+    if (isRunning) {
+      Alert.alert('Thông báo', 'Vui lòng đợi đến khi hết thời gian đếm ngược.');
+      return;
+    }
+
+    setIsResending(true);
+
+    try {
+      // Call backend to generate new OTP and send email
+      const response = await apiClient.post('/auth/forgot-password', { email });
+
+      // Update the actualOTP in route params
+      navigation.setParams({ actualOTP: response.otp });
+
+      Alert.alert('Thành công', 'Mã OTP mới đã được gửi đến email của bạn.');
+      start(); // Restart countdown
+    } catch (error) {
+      console.error('[OTPVerificationScreen] Resend error:', error);
+      Alert.alert('Lỗi', 'Không thể gửi lại mã OTP. Vui lòng thử lại.');
+    } finally {
+      setIsResending(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -100,7 +157,10 @@ export default function OTPVerificationScreen({ route, navigation }) {
 
             <Text style={styles.title}>Xác thực OTP</Text>
             <Text style={styles.description}>
-              Vui lòng nhập mã 6 số đã được gửi đến email
+              {isRegistration
+                ? 'Vui lòng nhập mã 6 số đã được gửi đến email để hoàn tất đăng ký'
+                : 'Vui lòng nhập mã 6 số đã được gửi đến email'
+              }
             </Text>
             <View style={styles.emailChip}>
               <Ionicons name="at-outline" size={16} color="#0031e8" />
@@ -139,25 +199,37 @@ export default function OTPVerificationScreen({ route, navigation }) {
             <View style={styles.timerRow}>
               <Ionicons name="time-outline" size={16} color="#f26f21" />
               <Text style={styles.timerLabel}>Mã có hiệu lực trong:</Text>
-              <Text style={styles.timer}>01:45</Text>
+              <Text style={styles.timer}>{formattedTime}</Text>
             </View>
             <TouchableOpacity
               accessibilityRole="button"
               onPress={handleResendOTP}
+              disabled={isRunning || isResending}
               style={styles.resendButton}
             >
-              <Text style={styles.resendLabel}>Chưa nhận được mã?</Text>
-              <Text style={styles.resendText}>Gửi lại mã</Text>
+              <Text style={styles.resendLabel}>
+                {isResending ? 'Đang gửi...' : isRunning ? 'Gửi lại sau:' : 'Chưa nhận được mã?'}
+              </Text>
+              <Text style={[styles.resendText, isRunning && styles.resendTextDisabled]}>
+                {isRunning ? formattedTime : 'Gửi lại mã'}
+              </Text>
             </TouchableOpacity>
           </View>
 
           <TouchableOpacity
             accessibilityRole="button"
             onPress={handleVerifyOTP}
-            style={styles.submitButton}
+            disabled={isVerifying}
+            style={[styles.submitButton, isVerifying && styles.submitButtonDisabled]}
           >
-            <Text style={styles.submitButtonText}>Xác nhận</Text>
-            <Ionicons name="arrow-forward" size={20} color="#ffffff" />
+            {isVerifying ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <>
+                <Text style={styles.submitButtonText}>Xác nhận</Text>
+                <Ionicons name="arrow-forward" size={20} color="#ffffff" />
+              </>
+            )}
           </TouchableOpacity>
 
           <View style={styles.securityCard}>
@@ -403,6 +475,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textDecorationLine: 'underline',
   },
+  resendTextDisabled: {
+    color: '#8c7166',
+    textDecorationLine: 'none',
+  },
   submitButton: {
     alignItems: 'center',
     backgroundColor: '#f26f21',
@@ -412,6 +488,9 @@ const styles = StyleSheet.create({
     height: 48,
     justifyContent: 'center',
     marginBottom: 24,
+  },
+  submitButtonDisabled: {
+    opacity: 0.7,
   },
   submitButtonText: {
     color: '#ffffff',

@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const PendingOTP = require('../models/PendingOTP');
 
 class UserRepository {
   /**
@@ -126,6 +127,55 @@ class UserRepository {
         { $inc: { walletPoints: pointsToAdd } },
         { new: true, runValidators: true }
       );
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Saves OTP for pending registration
+   * @param {string} email
+   * @param {string} otp
+   * @param {Date} expiresAt
+   * @returns {Promise<Object>}
+   */
+  async savePendingOtp(email, otp, expiresAt) {
+    try {
+      // Delete any existing OTP for this email
+      await PendingOTP.deleteOne({ email });
+
+      const pendingOTP = new PendingOTP({
+        email,
+        otp,
+        expiresAt,
+      });
+      return await pendingOTP.save();
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Gets pending OTP for an email
+   * @param {string} email
+   * @returns {Promise<Object|null>}
+   */
+  async getPendingOtp(email) {
+    try {
+      return await PendingOTP.findOne({ email });
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Clears pending OTP for an email
+   * @param {string} email
+   * @returns {Promise<Object>}
+   */
+  async clearPendingOtp(email) {
+    try {
+      return await PendingOTP.deleteOne({ email });
     } catch (error) {
       throw error;
     }

@@ -7,13 +7,47 @@ node_modules/
 # ==========================================
 # 2. BẢO MẬT BÍ MẬT & MÔI TRƯỜNG (SECURITY)
 # ==========================================
+# Environment files
 .env
 *.env
 **/.env
 backend/.env
 frontend/.env
+
+# Firebase Service Account Keys (BACKEND)
 firebase-service-account.json
+serviceAccountKey.json
+serviceAccountKey.json.json
+**/serviceAccountKey.json
+**/firebase-service-account.json
+
+# Firebase Client Config (FRONTEND)
+google-services.json
+google-services.json.json
+**/google-services.json
+
+# API Keys & Secrets
+*.key
 *.pem
+secrets.json
+**/secrets/
+config/secrets/
+
+# Android Signing Keys
+*.keystore
+*.jks
+debug.keystore
+**/debug.keystore
+
+# Test/Debug Scripts with credentials
+test-*.js
+create-test-user.js
+sync-firebase-user.js
+test-firebase-admin.js
+add-password-to-user.js
+delete-user.js
+test-api.js
+test-register-flow.js
 
 # ==========================================
 # 3. EXPO / REACT NATIVE / BUILDS (CACHE & ARTIFACTS)

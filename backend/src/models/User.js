@@ -103,4 +103,10 @@ userSchema.methods.toJSON = function () {
     return userObject;
 };
 
+// Indexes for frequently queried fields
+// Note: email and firebaseUid already have unique indexes from schema definition
+userSchema.index({ status: 1 });
+userSchema.index({ role: 1 });
+userSchema.index({ createdAt: -1 });
+
 module.exports = mongoose.model('User', userSchema);

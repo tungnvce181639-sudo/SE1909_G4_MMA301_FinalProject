@@ -18,6 +18,7 @@ import MyListingsScreen from '../screens/product/MyListingsScreen';
 import PostItemScreen from '../screens/product/PostItemScreen';
 import OrderHistoryScreen from '../screens/orders/OrderHistoryScreen';
 import UserProfileScreen from '../screens/profile/UserProfileScreen';
+import EditProfileScreen from '../screens/profile/EditProfileScreen';
 import ProductDetailScreen from '../screens/product/ProductDetailScreen';
 import AIEstimatorScreen from '../screens/ai/AIEstimatorScreen';
 import AIChatbotScreen from '../screens/ai/AIChatbotScreen';
@@ -143,6 +144,7 @@ function MainStackNavigator() {
         options={{ title: 'Trợ lý AI', presentation: 'modal', headerTintColor: primaryColor }}
       />
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Cài đặt' }} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: 'Chỉnh sửa hồ sơ' }} />
     </Stack.Navigator>
   );
 }
