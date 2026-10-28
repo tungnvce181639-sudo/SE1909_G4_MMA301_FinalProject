@@ -5,7 +5,6 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../config/firebaseConfig';
 import authService, {
   loginWithEmail as serviceLoginWithEmail,
-  loginWithGoogle as serviceLoginWithGoogle,
   registerWithEmail as serviceRegisterWithEmail,
   logout as serviceLogout,
   formatAuthErrorMessage,
@@ -34,34 +33,12 @@ export function AuthProvider({ children }) {
         }
       } catch (err) {
         console.warn('[AuthContext] Failed to restore session from AsyncStorage:', err);
+      } finally {
+        setLoading(false);
       }
     };
 
     restoreSession();
-
-    // Listen to Firebase auth state changes
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      try {
-        if (firebaseUser) {
-          const storedToken = await AsyncStorage.getItem(TOKEN_STORAGE_KEY);
-          const token = storedToken || (await firebaseUser.getIdToken());
-          setUser((currentUser) => currentUser || firebaseUser);
-          setUserToken(token);
-        } else {
-          setUser(null);
-          setUserToken(null);
-          await AsyncStorage.multiRemove([TOKEN_STORAGE_KEY, USER_DATA_KEY]);
-        }
-      } catch (error) {
-        console.error('[AuthContext] Error syncing auth state:', error);
-        setUser(null);
-        setUserToken(null);
-      } finally {
-        setLoading(false);
-      }
-    });
-
-    return unsubscribe;
   }, []);
 
   const login = useCallback(async (email, password) => {
@@ -94,21 +71,6 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const googleSignIn = useCallback(async () => {
-    setLoading(true);
-    try {
-      const result = await serviceLoginWithGoogle();
-      setUser(result.user);
-      setUserToken(result.token);
-      return result;
-    } catch (error) {
-      Alert.alert('Đăng nhập Google thất bại', error.message || formatAuthErrorMessage(error));
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   const logout = useCallback(async () => {
     setLoading(true);
     try {
@@ -131,10 +93,9 @@ export function AuthProvider({ children }) {
       userToken,
       login,
       register,
-      googleSignIn,
       logout,
     }),
-    [googleSignIn, loading, login, logout, register, user, userToken],
+    [loading, login, logout, register, user, userToken],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

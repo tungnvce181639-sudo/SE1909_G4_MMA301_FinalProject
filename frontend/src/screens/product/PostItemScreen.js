@@ -551,7 +551,7 @@ export default function PostItemScreen({ navigation }) {
                   setDescription(v);
                   if (errors.description) setErrors((e) => ({ ...e, description: undefined }));
                 }}
-                multiline
+                multiline={true}
                 numberOfLines={5}
                 textAlignVertical="top"
                 placeholder="Mô tả tình trạng thực tế, lý do bán, hàng tặng kèm... (tối thiểu 20 ký tự)"

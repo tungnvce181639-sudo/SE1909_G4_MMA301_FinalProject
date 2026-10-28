@@ -1,8 +1,29 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
-// Base API URL from environment variable or fallback to localhost
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
+// Base API URL configuration
+// For Android Emulator: use 10.0.2.2 to access host machine's localhost
+// For iOS Simulator: use localhost
+// For physical device: use your computer's IP address
+const getBaseUrl = () => {
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
+  }
+
+  // Auto-detect platform and use appropriate URL
+  if (Platform.OS === 'android') {
+    // Try to detect if running on emulator or physical device
+    // Default to physical device IP (172.20.10.2) which should work for both
+    // If using emulator, user can set EXPO_PUBLIC_API_URL=10.0.2.2
+    return 'http://172.20.10.2:5000/api';
+  }
+
+  // For iOS and web, use localhost
+  return 'http://localhost:5000/api';
+};
+
+const BASE_URL = getBaseUrl();
 
 export const TOKEN_STORAGE_KEY = 'userToken';
 export const USER_DATA_KEY = 'userData';

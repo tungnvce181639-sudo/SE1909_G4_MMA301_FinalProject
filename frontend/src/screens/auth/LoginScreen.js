@@ -15,14 +15,15 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { loginWithEmail, loginWithGoogle } from '../../services/authService';
+import { loginWithEmail } from '../../services/authService';
+import { validateFPTEduEmail, validateRequired } from '../../utils/validation';
 
 const getScaledFontSize = (size, scale) =>
   size * (typeof scale === 'number' ? scale : 1);
 
 export default function LoginScreen({ navigation }) {
   const { theme, isDarkMode, primaryColor, fontSizeScale } = useTheme();
-  const { login, googleSignIn } = useAuth();
+  const { login } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,7 +31,7 @@ export default function LoginScreen({ navigation }) {
   const [notice, setNotice] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [errors, setErrors] = useState({});
 
   const surfaceColor = theme?.background || theme?.surface || '#f9f9fd';
   const textColor = theme?.text || theme?.onSurface || (isDarkMode ? '#f5f5f5' : '#1a1c1f');
@@ -49,20 +50,20 @@ export default function LoginScreen({ navigation }) {
    * Handle Email/Password authentication
    */
   const handleLogin = async () => {
-    const trimmedEmail = email.trim();
+    // Reset errors
+    setErrors({});
 
-    if (!trimmedEmail) {
-      showNotice('Vui lòng điền tài khoản email sinh viên!');
+    // Validate email
+    const emailValidation = validateFPTEduEmail(email);
+    if (!emailValidation.isValid) {
+      setErrors((prev) => ({ ...prev, email: emailValidation.error }));
       return;
     }
 
-    if (!trimmedEmail.toLowerCase().endsWith('@fpt.edu.vn')) {
-      showNotice('Vui lòng sử dụng định dạng MSSV@fpt.edu.vn');
-      return;
-    }
-
-    if (!password) {
-      showNotice('Vui lòng nhập mật khẩu tài khoản');
+    // Validate password
+    const passwordValidation = validateRequired(password, 'mật khẩu');
+    if (!passwordValidation.isValid) {
+      setErrors((prev) => ({ ...prev, password: passwordValidation.error }));
       return;
     }
 
@@ -72,9 +73,9 @@ export default function LoginScreen({ navigation }) {
     try {
       // Connect to authService (or useAuth context wrapper)
       if (login) {
-        await login(trimmedEmail, password);
+        await login(email.trim(), password);
       } else {
-        await loginWithEmail(trimmedEmail, password);
+        await loginWithEmail(email.trim(), password);
       }
       showNotice('Đăng nhập thành công!', true);
     } catch (error) {
@@ -82,32 +83,6 @@ export default function LoginScreen({ navigation }) {
       Alert.alert('Lỗi đăng nhập', error.message || 'Không thể đăng nhập. Vui lòng thử lại.');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  /**
-   * Handle Google Sign-in flow
-   */
-  const handleGoogleSignIn = async () => {
-    setNotice('');
-    setIsGoogleLoading(true);
-
-    try {
-      // Connect to Google Sign-in workflow in authService / useAuth
-      if (googleSignIn) {
-        await googleSignIn();
-      } else {
-        await loginWithGoogle();
-      }
-      showNotice('Đăng nhập Google thành công!', true);
-    } catch (error) {
-      console.error('[LoginScreen] handleGoogleSignIn error:', error);
-      Alert.alert(
-        'Đăng nhập Google thất bại',
-        error.message || 'Không thể xác thực bằng tài khoản Google FPT.'
-      );
-    } finally {
-      setIsGoogleLoading(false);
     }
   };
 
@@ -178,13 +153,14 @@ export default function LoginScreen({ navigation }) {
                 autoCapitalize="none"
                 autoComplete="email"
                 keyboardType="email-address"
-                editable={!isLoading && !isGoogleLoading}
+                editable={!isLoading}
                 onChangeText={setEmail}
                 placeholder="mssv@fpt.edu.vn"
                 placeholderTextColor={mutedColor}
                 style={[
                   styles.input,
                   { backgroundColor: inputColor, color: textColor, fontSize: getScaledFontSize(14, fontSizeScale) },
+                  errors.email && styles.inputError,
                 ]}
                 value={email}
               />
@@ -198,6 +174,7 @@ export default function LoginScreen({ navigation }) {
                 </Pressable>
               ) : null}
             </View>
+            {errors.email ? <Text style={[styles.errorText, { color: '#ba1a1a' }]}>{errors.email}</Text> : null}
           </View>
 
           {/* Password Input */}
@@ -210,7 +187,7 @@ export default function LoginScreen({ navigation }) {
               <TextInput
                 autoCapitalize="none"
                 autoComplete="password"
-                editable={!isLoading && !isGoogleLoading}
+                editable={!isLoading}
                 onChangeText={setPassword}
                 placeholder="Nhập mật khẩu"
                 placeholderTextColor={mutedColor}
@@ -218,6 +195,7 @@ export default function LoginScreen({ navigation }) {
                 style={[
                   styles.input,
                   { backgroundColor: inputColor, color: textColor, fontSize: getScaledFontSize(14, fontSizeScale) },
+                  errors.password && styles.inputError,
                 ]}
                 value={password}
               />
@@ -229,11 +207,12 @@ export default function LoginScreen({ navigation }) {
                 <Ionicons name={isPasswordVisible ? 'eye-outline' : 'eye-off-outline'} size={20} color={mutedColor} />
               </Pressable>
             </View>
+            {errors.password ? <Text style={[styles.errorText, { color: '#ba1a1a' }]}>{errors.password}</Text> : null}
           </View>
 
           {/* Forgot Password */}
           <TouchableOpacity
-            disabled={isLoading || isGoogleLoading}
+            disabled={isLoading}
             onPress={() => navigation.navigate('ForgotPassword')}
             style={styles.forgotButton}
           >
@@ -244,7 +223,7 @@ export default function LoginScreen({ navigation }) {
 
           {/* Login Button with Loading State */}
           <TouchableOpacity
-            disabled={isLoading || isGoogleLoading}
+            disabled={isLoading}
             onPress={handleLogin}
             style={[styles.primaryButton, { backgroundColor: accentColor, opacity: isLoading ? 0.8 : 1 }]}
           >
@@ -262,7 +241,7 @@ export default function LoginScreen({ navigation }) {
 
           {/* Register Navigation */}
           <TouchableOpacity
-            disabled={isLoading || isGoogleLoading}
+            disabled={isLoading}
             onPress={handleRegister}
             style={[styles.secondaryButton, { backgroundColor: inputColor }]}
           >
@@ -277,39 +256,6 @@ export default function LoginScreen({ navigation }) {
             </Text>
           </TouchableOpacity>
         </View>
-
-        {/* Divider */}
-        <View style={styles.dividerRow}>
-          <View style={[styles.divider, { backgroundColor: borderColor }]} />
-          <Text style={[styles.dividerText, { color: mutedColor, fontSize: getScaledFontSize(12, fontSizeScale) }]}>
-            Hoặc đăng nhập bằng
-          </Text>
-          <View style={[styles.divider, { backgroundColor: borderColor }]} />
-        </View>
-
-        {/* Google Sign-in Button with Loading State */}
-        <TouchableOpacity
-          disabled={isLoading || isGoogleLoading}
-          onPress={handleGoogleSignIn}
-          style={[styles.googleButton, { backgroundColor: cardColor, opacity: isGoogleLoading ? 0.7 : 1 }]}
-        >
-          <View style={styles.socialContent}>
-            {isGoogleLoading ? (
-              <ActivityIndicator size="small" color="#4285f4" />
-            ) : (
-              <Ionicons name="logo-google" size={21} color="#4285f4" />
-            )}
-            <View>
-              <Text style={[styles.socialTitle, { color: textColor, fontSize: getScaledFontSize(14, fontSizeScale) }]}>
-                {isGoogleLoading ? 'Đang kết nối Google...' : 'Google FPT Edu'}
-              </Text>
-              <Text style={[styles.socialSubtitle, { color: mutedColor, fontSize: getScaledFontSize(10, fontSizeScale) }]}>
-                @fpt.edu.vn workspace
-              </Text>
-            </View>
-          </View>
-          <Ionicons name="chevron-forward" size={16} color={accentColor} />
-        </TouchableOpacity>
 
         <View style={[styles.badges, { backgroundColor: inputColor }]}>
           <TrustBadge
@@ -390,7 +336,9 @@ const styles = StyleSheet.create({
   inputWrapper: { alignItems: 'center', flexDirection: 'row' },
   inputIcon: { left: 14, position: 'absolute', zIndex: 1 },
   input: { borderRadius: 9, flex: 1, height: 48, paddingHorizontal: 44 },
+  inputError: { borderWidth: 1, borderColor: '#ba1a1a' },
   trailingButton: { padding: 8, position: 'absolute', right: 5 },
+  errorText: { fontSize: 11, marginTop: 4, fontWeight: '500' },
   forgotButton: { alignSelf: 'flex-end', paddingVertical: 2 },
   actionText: { fontWeight: '600' },
   primaryButton: {
@@ -411,19 +359,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   secondaryButtonText: { fontWeight: '600' },
-  dividerRow: { alignItems: 'center', flexDirection: 'row', gap: 12, marginVertical: 24, paddingHorizontal: 8 },
-  divider: { flex: 1, height: 1 },
-  dividerText: { fontWeight: '600' },
-  googleButton: {
-    alignItems: 'center',
-    borderRadius: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 16,
-  },
-  socialContent: { alignItems: 'center', flexDirection: 'row', gap: 12 },
-  socialTitle: { fontWeight: '600' },
-  socialSubtitle: { marginTop: 2 },
   badges: {
     alignItems: 'center',
     borderRadius: 12,
