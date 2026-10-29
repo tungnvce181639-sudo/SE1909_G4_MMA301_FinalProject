@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Text, View } from 'react-native';
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
@@ -131,7 +132,15 @@ function MainStackNavigator() {
       }}
     >
       <Stack.Screen name="MainTabs" component={TabNavigator} options={{ headerShown: false }} />
-      <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ title: 'Chi tiết sản phẩm' }} />
+      <Stack.Screen
+        name="ProductDetail"
+        component={ProductDetailScreen}
+        options={{
+          headerShown: false,
+          animation: 'fade',
+          animationDuration: 250,
+        }}
+      />
       <Stack.Screen
         name="AIEstimator"
         component={AIEstimatorScreen}
