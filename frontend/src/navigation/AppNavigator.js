@@ -24,7 +24,6 @@ import AIEstimatorScreen from '../screens/ai/AIEstimatorScreen';
 import AIChatbotScreen from '../screens/ai/AIChatbotScreen';
 import SettingsScreen from '../screens/settings/SettingsScreen';
 
-
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -132,7 +131,15 @@ function MainStackNavigator() {
       }}
     >
       <Stack.Screen name="MainTabs" component={TabNavigator} options={{ headerShown: false }} />
-      <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ title: 'Chi tiết sản phẩm' }} />
+      <Stack.Screen
+        name="ProductDetail"
+        component={ProductDetailScreen}
+        options={{
+          headerShown: false,
+          animation: 'fade',
+          animationDuration: 250,
+        }}
+      />
       <Stack.Screen
         name="AIEstimator"
         component={AIEstimatorScreen}
