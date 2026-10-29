@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Text, View } from 'react-native';
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
@@ -23,7 +22,6 @@ import ProductDetailScreen from '../screens/product/ProductDetailScreen';
 import AIEstimatorScreen from '../screens/ai/AIEstimatorScreen';
 import AIChatbotScreen from '../screens/ai/AIChatbotScreen';
 import SettingsScreen from '../screens/settings/SettingsScreen';
-
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
