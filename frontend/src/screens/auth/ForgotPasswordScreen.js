@@ -12,50 +12,36 @@ import {
     View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { validateFPTEduEmail } from '../../utils/validation';
+import apiClient from '../../services/api/apiClient';
 
 export default function ForgotPasswordScreen({ navigation }) {
     const [email, setEmail] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [errors, setErrors] = useState({});
 
     const handleResetPassword = async () => {
-        if (!email.trim()) {
-            Alert.alert('Lỗi', 'Vui lòng nhập địa chỉ email của bạn.');
+        // Reset errors
+        setErrors({});
+
+        // Validate email
+        const emailValidation = validateFPTEduEmail(email);
+        if (!emailValidation.isValid) {
+            setErrors((prev) => ({ ...prev, email: emailValidation.error }));
             return;
         }
 
         setIsSubmitting(true);
 
         try {
-            const generatedOTP = Math.floor(100000 + Math.random() * 900000).toString();
-            const emailData = {
-                service_id: 'service_fgcne1k',
-                template_id: 'template_svmcnzn',
-                user_id: '9ZH5YHDvmUrekjwkP',
-                template_params: {
-                    email: email,         // Sửa từ to_email thành email (khớp với {{email}} bên phải)[cite: 5]
-                    passcode: generatedOTP, // Sửa từ otp_code thành passcode (khớp với {{passcode}} trong nội dung)[cite: 5]
-                },
-            };
+            // Call backend to generate OTP and send email
+            const response = await apiClient.post('/auth/forgot-password', { email });
 
-            console.log("Sending EmailJS data:", JSON.stringify(emailData, null, 2));
-
-            const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(emailData),
-            });
-
-            const responseText = await response.text();
-            if (!response.ok) {
-                throw new Error(responseText || 'Failed to send email');
-            }
-
-            navigation.navigate('OTPVerification', { email: email, actualOTP: generatedOTP });
+            // Navigate to OTP verification screen with the OTP from backend
+            navigation.navigate('OTPVerification', { email: email, actualOTP: response.otp });
         } catch (error) {
-            console.error("EMAILJS ERROR DETAIL:", error);
-            Alert.alert("Lỗi Gửi Email", error.message || "Không thể gửi mã OTP, vui lòng thử lại.");
+            console.error('[ForgotPasswordScreen] Error:', error);
+            Alert.alert("Lỗi", error.message || "Không thể gửi mã OTP, vui lòng thử lại.");
         } finally {
             setIsSubmitting(false);
         }
@@ -124,10 +110,11 @@ export default function ForgotPasswordScreen({ navigation }) {
                                 onChangeText={setEmail}
                                 placeholder="vd: tuanlmse160234@fpt.edu.vn"
                                 placeholderTextColor="#8c7166"
-                                style={styles.input}
+                                style={[styles.input, errors.email && styles.inputError]}
                                 value={email}
                             />
                         </View>
+                        {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
 
                         <View style={styles.helperRow}>
                             <Ionicons name="information-circle" size={16} color="#f26f21" />
@@ -348,6 +335,16 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.06,
         shadowRadius: 3,
+    },
+    inputError: {
+        borderWidth: 1,
+        borderColor: '#ba1a1a',
+    },
+    errorText: {
+        color: '#ba1a1a',
+        fontSize: 11,
+        marginTop: 4,
+        fontWeight: '500',
     },
     helperRow: {
         alignItems: 'flex-start',

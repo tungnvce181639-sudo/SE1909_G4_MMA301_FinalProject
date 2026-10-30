@@ -1,8 +1,6 @@
 import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../config/firebaseConfig';
 import authService, {
   loginWithEmail as serviceLoginWithEmail,
   loginWithGoogle as serviceLoginWithGoogle,
@@ -10,7 +8,6 @@ import authService, {
   logout as serviceLogout,
   formatAuthErrorMessage,
   isGoogleSignInCancelled,
-  createBackendSessionForFirebaseUser,
 } from '../services/authService';
 import { TOKEN_STORAGE_KEY, USER_DATA_KEY } from '../services/api/apiClient';
 
@@ -36,45 +33,12 @@ export function AuthProvider({ children }) {
         }
       } catch (err) {
         console.warn('[AuthContext] Failed to restore session from AsyncStorage:', err);
+      } finally {
+        setLoading(false);
       }
     };
 
     restoreSession();
-
-    // Listen to Firebase auth state changes
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      try {
-        if (firebaseUser) {
-          const storedToken = await AsyncStorage.getItem(TOKEN_STORAGE_KEY);
-          const storedUserData = await AsyncStorage.getItem(USER_DATA_KEY);
-
-          if (storedToken) {
-            setUser((currentUser) => currentUser || (storedUserData ? JSON.parse(storedUserData) : firebaseUser));
-            setUserToken(storedToken);
-          } else {
-            const session = await createBackendSessionForFirebaseUser(firebaseUser);
-            setUser(session.user);
-            setUserToken(session.token);
-          }
-        } else {
-          setUser(null);
-          setUserToken(null);
-          await AsyncStorage.multiRemove([TOKEN_STORAGE_KEY, USER_DATA_KEY]);
-        }
-      } catch (error) {
-        console.error('[AuthContext] Error syncing auth state:', error);
-        setUser(null);
-        setUserToken(null);
-        Alert.alert(
-          'Không khôi phục được phiên đăng nhập',
-          error.message || 'Vui lòng kiểm tra kết nối và đăng nhập lại.',
-        );
-      } finally {
-        setLoading(false);
-      }
-    });
-
-    return unsubscribe;
   }, []);
 
   const login = useCallback(async (email, password) => {

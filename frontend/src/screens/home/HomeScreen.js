@@ -1,5 +1,6 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Image,
   RefreshControl,
@@ -13,138 +14,181 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { CATEGORIES, getProducts } from '../../services/api/productApi';
 
-const categories = [
-  { id: 'books', label: 'Giáo trình\n& Sách', icon: 'book-outline', color: '#a04100', background: '#ffdbcc' },
-  { id: 'electronics', label: 'Đồ điện tử\nLaptop', icon: 'laptop-outline', color: '#0031e8', background: '#dee0ff' },
-  { id: 'home', label: 'Gia dụng\nKTX', icon: 'bed-outline', color: '#006b55', background: '#6dfad2' },
-  { id: 'vehicles', label: 'Xe máy\nXe điện', icon: 'bicycle-outline', color: '#f26f21', background: '#e8e8ec' },
-  { id: 'fashion', label: 'Thời trang\nPhụ kiện', icon: 'shirt-outline', color: '#a04100', background: '#ffb693' },
-  { id: 'sports', label: 'Thể thao\nDụng cụ', icon: 'barbell-outline', color: '#1a1c1f', background: '#e8e8ec' },
-  { id: 'free', label: 'Tặng đồ\nFree 0đ', icon: 'heart-outline', color: '#ba1a1a', background: '#ffdad6' },
-];
-
-const products = [
-  {
-    id: 'prf192-pro197',
-    title: 'Combo Giáo trình Kỹ thuật phần mềm K18 (PRF192 + PRO197)',
-    price: '95.000đ',
-    location: 'KTX Dom A • 10p trước',
-    seller: 'Minh Quân K17',
-    badge: 'Mới 95%',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD2zQw7lE7lC1XQG9xT4G0b5Q0w2kLr9d4z5Xg',
-    icon: 'business-outline',
-    verified: true,
-  },
-  {
-    id: 'lock-lock-rice-cooker',
-    title: 'Nồi cơm điện mini Lock&Lock 0.8L (Dùng tốt phòng trọ)',
-    price: '180.000đ',
-    location: 'Làng ĐH / Dom E • 25p',
-    seller: 'Bảo Ngọc K18',
-    badge: 'Likenew',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBp4I_Jzyy3psxvayq0jXwjVhbvQvySd8bQ_Ya9xQSP1e2w2fhSNzyU6y-AIhdZwGkrFJNb6vk_0WzWy7dXbVa2M_rlghYUj45UXLYwBfYmGjHXIXQXZMPGJ__HeouqHpx_dWjCT14So_ClN3iUuzZqS9lhCrAxYaZWk-KQ0VGJ5qtb10BmMq1g7O_g-7NCBBJtain6Y9_KgngaBPFnOtOWt_3Je6CTAeCxzuYy_zecXNvsVx56v6QHsQ',
-    icon: 'business-outline',
-    verified: false,
-  },
-  {
-    id: 'dell-monitor',
-    title: 'Màn hình Dell 24 inch IPS FHD (Kèm cáp HDMI zin)',
-    price: '1.250.000đ',
-    location: 'KTX Dom B - P.304',
-    seller: 'Huy Hoàng IT',
-    badge: '98% FHD',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAW2_7vC-eDfCZ_ZMGZg62QPfM8Jj3uyrlDjuPVh8hq7rtDj4387lZmXw9eOtE0wcM6Cnj7pDCcUT8df04znHuaMtzFZCikJg1B3ppq1BLmm8S6aDE6-RVZVXcS6hFkJ3a7zdPlHG-S5QZ6B0bgTARGYWjruTPqNrhsM2Ar93Ls6fpP8lFbkn1_nAiU856QyywGkloF6QFHLa5PwY9nGj2Yl0XkDAtFpTKasXBA2aNCv-8t5oScvhPNaA',
-    icon: 'business-outline',
-    verified: true,
-  },
-  {
-    id: 'nijia-electric-bike',
-    title: 'Xe đạp điện Nijia chính chủ, ắc quy mới thay 2 tháng',
-    price: '2.800.000đ',
-    location: 'Bãi xe KTX • 2h',
-    seller: 'Đức Thắng K16',
-    badge: 'Chính chủ',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBHIWiWyDGtJ7AAB5bB6ZEQRi7sz3-LuvBPxAPPqdHwbgpxdF_xKEvqOh5F-Pi9tsC6hrINTOLR3zlSR-iXJPT3SW_L12jSMFdB5gUXqk84IW7yryPFgQweeuzlJAlAhaW8zOIQCxtgQP6jLIy45SOHuJBbTWnPq-5gVL86SwoThL9bIKEc_rHnwaLHrSjIcrbvu2wDYoF02v-0uMCI4jw6GWH3VAP2zhPsHqMN0mrrwkNjw76-1jKeRA',
-    icon: 'car-outline',
-    verified: false,
-  },
-  {
-    id: 'foldable-desk-fan',
-    title: 'Bàn học gấp gọn kèm quạt mini cho phòng trọ',
-    price: '320.000đ',
-    location: 'KTX Dom C • 3h',
-    seller: 'Lan Anh K19',
-    badge: 'Tiện dụng',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC3H8pQ4tF7rL9mN2sV6xY1zK5qW8eR0tU3iO6pA9sD4fG7hJ2kL5mN8bQ1wE4rT7yU0iO3pA6sD9fG2hJ5kL8mN1bQ4wE7rT0',
-    icon: 'business-outline',
-    verified: false,
-  },
-  {
-    id: 'sony-wh-ch520',
-    title: 'Tai nghe chống ồn Sony WH-CH520 màu kem chính hãng',
-    price: '650.000đ',
-    location: 'KTX Dom A • 5h',
-    seller: 'Thanh Tùng Graphic',
-    badge: 'Fullbox 99%',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBb7WusnAyatiRwXKhcrw4S_UZu0vG8_v3I8uQOnG9t6B17UfxM5C_p38bm1lOEfeR-jzISFA6yT1H5GEGMjOAe5t30O-Rtl9wmQbuhh1wgK07D2g5jTZWomSbVDiusj7DxQ4BKNYCtlyJywnz685lIQ6TlFpp3Qc5gegJj7vNt4sgKhuBT0D21bwItof2fHvMf6VZsr4LHIqjtxh0x_RRmiF_93VyK4mo91qqpu5tXsDDYyHlG1Pj2Hg',
-    icon: 'business-outline',
-    verified: true,
-  },
-];
-
-const filters = ['Tất cả', 'Gần bạn (KTX)', 'Giá < 100k'];
+const FILTERS = ['Tất cả', 'Gần bạn (KTX)', 'Giá < 100k', 'Tặng đồ 0đ'];
 
 export default function HomeScreen({ navigation }) {
   const { theme, isDarkMode, primaryColor, fontSizeScale } = useTheme();
-  const [search, setSearch] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
-  const [selectedFilter, setSelectedFilter] = useState(filters[0]);
-  const [favorites, setFavorites] = useState([]);
 
+  // Search & Filter States
+  const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedFilter, setSelectedFilter] = useState('Tất cả');
+
+  // Products & Pagination States
+  const [products, setProducts] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // User interactions
+  const [favorites, setFavorites] = useState([]);
+  const searchTimeoutRef = useRef(null);
+
+  // Fetch products function
+  const fetchProducts = useCallback(
+    async ({
+      reset = false,
+      pageNum = 1,
+      cat = selectedCategory,
+      query = search,
+      flt = selectedFilter,
+    } = {}) => {
+      if (reset) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
+
+      try {
+        const res = await getProducts({
+          category: cat,
+          search: query,
+          filter: flt,
+          page: pageNum,
+          limit: 6,
+        });
+
+        if (reset) {
+          setProducts(res.products || []);
+        } else {
+          setProducts((prev) => {
+            const existingIds = new Set(prev.map((item) => item.id));
+            const newItems = (res.products || []).filter((item) => !existingIds.has(item.id));
+            return [...prev, ...newItems];
+          });
+        }
+
+        setHasMore(Boolean(res.hasMore));
+        setPage(pageNum);
+      } catch (err) {
+        console.warn('[HomeScreen] fetchProducts error:', err);
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+        setRefreshing(false);
+      }
+    },
+    [selectedCategory, search, selectedFilter]
+  );
+
+  // Initial load and filter/category trigger with debounce for search
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      fetchProducts({ reset: true, pageNum: 1 });
+    }, 280);
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [search, selectedCategory, selectedFilter]);
+
+  // Pull to refresh
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 800);
-  }, []);
+    fetchProducts({ reset: true, pageNum: 1 });
+  }, [fetchProducts]);
 
-  const toggleFavorite = (id) => {
-    setFavorites((current) => (
-      current.includes(id) ? current.filter((favoriteId) => favoriteId !== id) : [...current, id]
-    ));
+  // Load more on scroll to end
+  const handleLoadMore = () => {
+    if (!loading && !loadingMore && hasMore) {
+      fetchProducts({ reset: false, pageNum: page + 1 });
+    }
   };
 
+  // Toggle favorite
+  const toggleFavorite = (id) => {
+    setFavorites((current) =>
+      current.includes(id) ? current.filter((favoriteId) => favoriteId !== id) : [...current, id]
+    );
+  };
+
+  // Category selection handler
+  const handleCategoryPress = (catId) => {
+    setSelectedCategory((prev) => (prev === catId ? 'all' : catId));
+  };
+
+  // Render each product card
   const renderProduct = ({ item }) => {
     const isFavorite = favorites.includes(item.id);
+    const imageUri =
+      (Array.isArray(item.images) && item.images[0]) ||
+      item.image ||
+      'https://images.unsplash.com/photo-1544717305-2782549b5136?w=1000&q=80';
+    const priceText =
+      item.priceDisplay ||
+      (typeof item.price === 'number'
+        ? item.price === 0
+          ? '0 ₫ (Miễn phí)'
+          : `${item.price.toLocaleString('vi-VN')} ₫`
+        : item.price);
+    const sellerName =
+      (typeof item.seller === 'object' ? item.seller?.name : item.seller) || 'Sinh viên FPT';
+    const isVerified = Boolean(item.verified || (item.seller && item.seller.verified));
+
     return (
       <TouchableOpacity
-        activeOpacity={0.85}
+        activeOpacity={0.88}
         style={[styles.productCard, { backgroundColor: theme.card }]}
-        onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+        onPress={() => navigation.navigate('ProductDetail', { productId: item.id, product: item })}
       >
         <View style={styles.productImageContainer}>
-          <Image source={{ uri: item.image }} style={styles.productImage} />
-          <Text style={[styles.badge, { backgroundColor: primaryColor }]}>{item.badge}</Text>
+          <Image source={{ uri: imageUri }} style={styles.productImage} />
+          <Text style={[styles.badge, { backgroundColor: primaryColor }]}>{item.badge || item.condition || 'Mới'}</Text>
           <TouchableOpacity
             accessibilityLabel={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
             style={[styles.favoriteButton, { backgroundColor: `${theme.background}dd` }]}
             onPress={() => toggleFavorite(item.id)}
           >
-            <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={17} color={isFavorite ? '#ba1a1a' : theme.text} />
+            <Ionicons
+              name={isFavorite ? 'heart' : 'heart-outline'}
+              size={17}
+              color={isFavorite ? '#ba1a1a' : theme.text}
+            />
           </TouchableOpacity>
         </View>
         <View style={styles.productDetails}>
-          <Text numberOfLines={2} style={[styles.productTitle, { color: theme.text, fontSize: 14 * fontSizeScale }]}>
+          <Text numberOfLines={2} style={[styles.productTitle, { color: theme.text, fontSize: 13.5 * fontSizeScale }]}>
             {item.title}
           </Text>
-          <Text style={[styles.productPrice, { color: primaryColor, fontSize: 20 * fontSizeScale }]}>{item.price}</Text>
+          <Text style={[styles.productPrice, { color: primaryColor, fontSize: 18 * fontSizeScale }]}>
+            {priceText}
+          </Text>
           <View style={styles.productMeta}>
             <View style={styles.metaRow}>
-              <Ionicons name={item.icon} size={13} color={primaryColor} />
-              <Text numberOfLines={1} style={[styles.metaText, { color: theme.textSecondary }]}>{item.location}</Text>
+              <Ionicons name="location-outline" size={13} color={primaryColor} />
+              <Text numberOfLines={1} style={[styles.metaText, { color: theme.textSecondary }]}>
+                {item.location || 'FPT Hòa Lạc'}
+              </Text>
             </View>
             <View style={styles.metaRow}>
-              <Ionicons name={item.verified ? 'checkmark-circle' : 'person-circle-outline'} size={13} color={item.verified ? '#006b55' : theme.textSecondary} />
-              <Text numberOfLines={1} style={[styles.metaText, { color: theme.textSecondary }]}>{item.seller}</Text>
+              <Ionicons
+                name={isVerified ? 'checkmark-circle' : 'person-circle-outline'}
+                size={13}
+                color={isVerified ? '#006b55' : theme.textSecondary}
+              />
+              <Text numberOfLines={1} style={[styles.metaText, { color: theme.textSecondary }]}>
+                {sellerName}
+              </Text>
             </View>
           </View>
         </View>
@@ -152,44 +196,124 @@ export default function HomeScreen({ navigation }) {
     );
   };
 
+  // Footer loading / end state
+  const renderFooter = () => {
+    if (loadingMore) {
+      return (
+        <View style={styles.footerLoader}>
+          <ActivityIndicator size="small" color={primaryColor} />
+          <Text style={[styles.footerText, { color: theme.textSecondary }]}>Đang tải thêm sản phẩm...</Text>
+        </View>
+      );
+    }
+    if (!hasMore && products.length > 0) {
+      return (
+        <Text style={[styles.footerText, { color: theme.textSecondary }]}>
+          ✓ Đã hiển thị tất cả tin đăng từ sinh viên FPT
+        </Text>
+      );
+    }
+    return null;
+  };
+
+  // Empty state when search or filter returns no items
+  const renderEmpty = () => {
+    if (loading) {
+      return (
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator size="large" color={primaryColor} style={{ marginBottom: 12 }} />
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Đang tải dữ liệu sản phẩm...</Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.emptyContainer}>
+        <Ionicons name="search-outline" size={54} color={theme.textSecondary} style={{ opacity: 0.5, marginBottom: 12 }} />
+        <Text style={[styles.emptyTitle, { color: theme.text }]}>Không tìm thấy sản phẩm nào</Text>
+        <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+          Thử gõ từ khóa khác hoặc chọn xem tất cả danh mục.
+        </Text>
+        <TouchableOpacity
+          style={[styles.resetButton, { backgroundColor: primaryColor }]}
+          onPress={() => {
+            setSearch('');
+            setSelectedCategory('all');
+            setSelectedFilter('Tất cả');
+          }}
+        >
+          <Text style={styles.resetButtonText}>Xem tất cả sản phẩm</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
       <FlatList
         data={products}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => String(item.id)}
         numColumns={2}
         renderItem={renderProduct}
         columnWrapperStyle={styles.productRow}
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={primaryColor} />}
-        ListHeaderComponent={(
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={primaryColor} />
+        }
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.35}
+        ListFooterComponent={renderFooter}
+        ListEmptyComponent={renderEmpty}
+        ListHeaderComponent={
           <>
             <View style={styles.header}>
-              <Text style={[styles.headerTitle, { color: theme.text, fontSize: 20 * fontSizeScale }]}>Student Market</Text>
+              <Text style={[styles.headerTitle, { color: theme.text, fontSize: 21 * fontSizeScale }]}>
+                Student Market
+              </Text>
               <View style={styles.headerActions}>
-                <TouchableOpacity accessibilityLabel="Search market" style={styles.iconButton}>
+                <TouchableOpacity
+                  accessibilityLabel="Tìm kiếm"
+                  style={styles.iconButton}
+                  onPress={() => {}}
+                >
                   <Ionicons name="search-outline" size={23} color={theme.text} />
                 </TouchableOpacity>
-                <View style={[styles.profileIcon, { backgroundColor: primaryColor }]}>
+                <TouchableOpacity
+                  style={[styles.profileIcon, { backgroundColor: primaryColor }]}
+                  onPress={() => navigation.navigate('MainTabs', { screen: 'Profile' })}
+                >
                   <Ionicons name="person-outline" size={18} color="#ffffff" />
-                </View>
+                </TouchableOpacity>
               </View>
             </View>
 
             <View style={styles.locationRow}>
-              <TouchableOpacity style={[styles.locationButton, { backgroundColor: isDarkMode ? theme.card : '#e8e8ec' }]}>
+              <TouchableOpacity
+                style={[
+                  styles.locationButton,
+                  { backgroundColor: isDarkMode ? theme.card : '#e8e8ec' },
+                ]}
+              >
                 <Ionicons name="location-outline" size={19} color={primaryColor} />
                 <View style={styles.locationText}>
                   <Text style={[styles.locationLabel, { color: theme.textSecondary }]}>Cơ sở hiện tại</Text>
-                  <Text numberOfLines={1} style={[styles.locationValue, { color: theme.text }]}>FPT Hòa Lạc • KTX Khu A & B</Text>
+                  <Text numberOfLines={1} style={[styles.locationValue, { color: theme.text }]}>
+                    FPT Hòa Lạc • KTX Khu A & B
+                  </Text>
                 </View>
                 <Ionicons name="chevron-down" size={16} color={theme.textSecondary} />
               </TouchableOpacity>
               <View style={styles.quickActions}>
-                <TouchableOpacity style={[styles.roundButton, { backgroundColor: theme.card }]}>
+                <TouchableOpacity
+                  style={[styles.roundButton, { backgroundColor: theme.card }]}
+                  onPress={() => navigation.navigate('MainTabs', { screen: 'Orders' })}
+                >
                   <Ionicons name="notifications-outline" size={21} color={theme.text} />
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.roundButton, { backgroundColor: theme.card }]}>
+                <TouchableOpacity
+                  style={[styles.roundButton, { backgroundColor: theme.card }]}
+                  onPress={() => navigation.navigate('AIChatbot')}
+                >
                   <Ionicons name="chatbubble-ellipses-outline" size={21} color={theme.text} />
                 </TouchableOpacity>
               </View>
@@ -204,10 +328,22 @@ export default function HomeScreen({ navigation }) {
                   placeholder="Tìm giáo trình, laptop, xe điện..."
                   placeholderTextColor={theme.textSecondary}
                   style={[styles.searchInput, { color: theme.text, fontSize: 14 * fontSizeScale }]}
+                  returnKeyType="search"
                 />
-                <Ionicons name="camera-outline" size={19} color={theme.textSecondary} />
+                {search.length > 0 ? (
+                  <TouchableOpacity onPress={() => setSearch('')}>
+                    <Ionicons name="close-circle" size={19} color={theme.textSecondary} />
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity onPress={() => navigation.navigate('AIEstimator')}>
+                    <Ionicons name="sparkles-outline" size={19} color={primaryColor} />
+                  </TouchableOpacity>
+                )}
               </View>
-              <TouchableOpacity style={[styles.filterButton, { backgroundColor: primaryColor }]}>
+              <TouchableOpacity
+                style={[styles.filterButton, { backgroundColor: primaryColor }]}
+                onPress={() => setSelectedFilter(selectedFilter === 'Tất cả' ? 'Gần bạn (KTX)' : 'Tất cả')}
+              >
                 <Ionicons name="options-outline" size={21} color="#ffffff" />
               </TouchableOpacity>
             </View>
@@ -217,7 +353,10 @@ export default function HomeScreen({ navigation }) {
                 <Text style={styles.promoTag}>XUÂN 2025</Text>
                 <Text style={[styles.promoTitle, { fontSize: 20 * fontSizeScale }]}>Hội Chợ Sinh Viên FPT</Text>
                 <Text style={styles.promoDescription}>Đổi giáo trình cũ - Nhận liền tay e-voucher 50K dịch vụ KTX!</Text>
-                <TouchableOpacity style={styles.promoButton}>
+                <TouchableOpacity
+                  style={styles.promoButton}
+                  onPress={() => setSelectedCategory('books')}
+                >
                   <Text style={[styles.promoButtonText, { color: primaryColor }]}>Khám phá ngay</Text>
                   <Ionicons name="arrow-forward" size={16} color={primaryColor} />
                 </TouchableOpacity>
@@ -233,50 +372,122 @@ export default function HomeScreen({ navigation }) {
               ].map(([icon, label]) => (
                 <View key={label} style={styles.trustItem}>
                   <Ionicons name={icon} size={18} color={primaryColor} />
-                  <Text numberOfLines={1} style={[styles.trustText, { color: theme.text }]}>{label}</Text>
+                  <Text numberOfLines={1} style={[styles.trustText, { color: theme.text }]}>
+                    {label}
+                  </Text>
                 </View>
               ))}
             </View>
 
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: theme.text, fontSize: 20 * fontSizeScale }]}>Danh mục nổi bật</Text>
-              <TouchableOpacity style={styles.seeAll}>
-                <Text style={[styles.seeAllText, { color: primaryColor }]}>Tất cả</Text>
-                <Ionicons name="chevron-forward" size={16} color={primaryColor} />
+              <Text style={[styles.sectionTitle, { color: theme.text, fontSize: 18 * fontSizeScale }]}>
+                Danh mục nổi bật
+              </Text>
+              <TouchableOpacity style={styles.seeAll} onPress={() => setSelectedCategory('all')}>
+                <Text style={[styles.seeAllText, { color: primaryColor }]}>
+                  {selectedCategory !== 'all' ? 'Đặt lại tất cả' : 'Tất cả'}
+                </Text>
+                <Ionicons name="chevron-forward" size={15} color={primaryColor} />
               </TouchableOpacity>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryList}>
-              {categories.map((category) => (
-                <TouchableOpacity key={category.id} style={styles.categoryItem}>
-                  <View style={[styles.categoryIcon, { backgroundColor: isDarkMode ? theme.card : category.background }]}>
-                    <Ionicons name={category.icon} size={26} color={isDarkMode ? primaryColor : category.color} />
-                  </View>
-                  <Text style={[styles.categoryLabel, { color: theme.text }]}>{category.label}</Text>
-                </TouchableOpacity>
-              ))}
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoryList}
+            >
+              {CATEGORIES.map((category) => {
+                const isSelected = selectedCategory === category.id;
+                return (
+                  <TouchableOpacity
+                    key={category.id}
+                    style={styles.categoryItem}
+                    onPress={() => handleCategoryPress(category.id)}
+                    activeOpacity={0.75}
+                  >
+                    <View
+                      style={[
+                        styles.categoryIcon,
+                        {
+                          backgroundColor: isSelected
+                            ? primaryColor
+                            : isDarkMode
+                            ? theme.card
+                            : category.background,
+                          borderWidth: isSelected ? 2 : 0,
+                          borderColor: primaryColor,
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name={category.icon}
+                        size={25}
+                        color={isSelected ? '#ffffff' : isDarkMode ? primaryColor : category.color}
+                      />
+                    </View>
+                    <Text
+                      numberOfLines={2}
+                      style={[
+                        styles.categoryLabel,
+                        {
+                          color: isSelected ? primaryColor : theme.text,
+                          fontWeight: isSelected ? '700' : '500',
+                        },
+                      ]}
+                    >
+                      {category.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
 
             <View style={styles.feedHeader}>
               <View style={styles.feedTitleRow}>
                 <Ionicons name="flame" size={22} color={primaryColor} />
-                <Text style={[styles.sectionTitle, { color: theme.text, fontSize: 20 * fontSizeScale }]}>Gợi ý hôm nay</Text>
+                <Text style={[styles.sectionTitle, { color: theme.text, fontSize: 18 * fontSizeScale }]}>
+                  {selectedCategory !== 'all'
+                    ? `Danh mục: ${CATEGORIES.find((c) => c.id === selectedCategory)?.label.replace('\n', ' ') || ''}`
+                    : 'Gợi ý hôm nay'}
+                </Text>
               </View>
               <Text style={[styles.gradeBadge, { color: primaryColor }]}>K16 - K19</Text>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterList}>
-              {filters.map((filter) => (
-                <TouchableOpacity
-                  key={filter}
-                  onPress={() => setSelectedFilter(filter)}
-                  style={[styles.filterPill, { backgroundColor: selectedFilter === filter ? theme.text : theme.card }]}
-                >
-                  <Text style={{ color: selectedFilter === filter ? theme.background : theme.text }}>{filter}</Text>
-                </TouchableOpacity>
-              ))}
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterList}
+            >
+              {FILTERS.map((filter) => {
+                const isActive = selectedFilter === filter;
+                return (
+                  <TouchableOpacity
+                    key={filter}
+                    onPress={() => setSelectedFilter(filter)}
+                    style={[
+                      styles.filterPill,
+                      {
+                        backgroundColor: isActive ? primaryColor : theme.card,
+                        borderColor: isActive ? primaryColor : theme.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={{
+                        color: isActive ? '#ffffff' : theme.text,
+                        fontWeight: isActive ? '700' : '500',
+                        fontSize: 12,
+                      }}
+                    >
+                      {filter}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           </>
-        )}
-        ListFooterComponent={<Text style={[styles.footerText, { color: theme.textSecondary }]}>Đang tải thêm tin đăng từ sinh viên FPT...</Text>}
+        }
       />
     </SafeAreaView>
   );
@@ -301,7 +512,7 @@ const styles = StyleSheet.create({
   searchBox: { flex: 1, height: 48, borderRadius: 13, borderWidth: 1, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
   searchInput: { flex: 1, paddingVertical: 0 },
   filterButton: { width: 48, height: 48, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  promoCard: { minHeight: 184, borderRadius: 18, padding: 16, overflow: 'hidden', marginBottom: 12 },
+  promoCard: { minHeight: 174, borderRadius: 18, padding: 16, overflow: 'hidden', marginBottom: 12 },
   promoCopy: { width: '72%', zIndex: 1 },
   promoTag: { color: '#ffffff', fontSize: 10, fontWeight: '700', letterSpacing: 1, marginBottom: 7 },
   promoTitle: { color: '#ffffff', fontWeight: '700', marginBottom: 5 },
@@ -309,33 +520,39 @@ const styles = StyleSheet.create({
   promoButton: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#ffffff', borderRadius: 8, paddingHorizontal: 11, paddingVertical: 8, marginTop: 12 },
   promoButtonText: { fontSize: 12, fontWeight: '700' },
   promoIcon: { position: 'absolute', right: 12, bottom: 18 },
-  trustRow: { borderRadius: 12, padding: 10, flexDirection: 'row', justifyContent: 'space-between', marginBottom: 22 },
+  trustRow: { borderRadius: 12, padding: 10, flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
   trustItem: { flex: 1, alignItems: 'center', gap: 4 },
   trustText: { fontSize: 10, textAlign: 'center' },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle: { fontWeight: '700' },
   seeAll: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   seeAllText: { fontSize: 12, fontWeight: '600' },
-  categoryList: { gap: 12, paddingBottom: 24 },
-  categoryItem: { width: 70, alignItems: 'center', gap: 7 },
+  categoryList: { gap: 12, paddingBottom: 22 },
+  categoryItem: { width: 70, alignItems: 'center', gap: 6 },
   categoryIcon: { width: 56, height: 56, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  categoryLabel: { fontSize: 10, textAlign: 'center', lineHeight: 14 },
+  categoryLabel: { fontSize: 10, textAlign: 'center', lineHeight: 13 },
   feedHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   feedTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   gradeBadge: { backgroundColor: '#ffdbcc', borderRadius: 12, paddingHorizontal: 9, paddingVertical: 4, fontSize: 10, fontWeight: '700' },
   filterList: { gap: 8, paddingBottom: 16 },
-  filterPill: { borderRadius: 18, paddingHorizontal: 14, paddingVertical: 9 },
+  filterPill: { borderRadius: 18, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1 },
   productRow: { gap: 12, marginBottom: 12 },
   productCard: { flex: 1, minWidth: 0, borderRadius: 16, overflow: 'hidden', elevation: 1 },
   productImageContainer: { aspectRatio: 1, backgroundColor: '#e8e8ec', position: 'relative' },
   productImage: { width: '100%', height: '100%' },
-  badge: { position: 'absolute', top: 8, left: 8, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 4, color: '#ffffff', fontSize: 10, fontWeight: '700' },
+  badge: { position: 'absolute', top: 8, left: 8, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, color: '#ffffff', fontSize: 10, fontWeight: '700' },
   favoriteButton: { position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  productDetails: { padding: 10, minHeight: 142 },
-  productTitle: { fontWeight: '600', lineHeight: 19, minHeight: 38 },
+  productDetails: { padding: 10, minHeight: 138 },
+  productTitle: { fontWeight: '600', lineHeight: 18, minHeight: 36 },
   productPrice: { fontWeight: '700', marginTop: 4, marginBottom: 8 },
   productMeta: { gap: 5 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   metaText: { flex: 1, fontSize: 10 },
+  footerLoader: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, paddingVertical: 18 },
   footerText: { textAlign: 'center', fontSize: 12, paddingVertical: 18 },
+  emptyContainer: { paddingVertical: 40, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
+  emptyTitle: { fontSize: 16, fontWeight: '700', marginBottom: 6 },
+  emptyText: { fontSize: 13, textAlign: 'center', marginBottom: 18 },
+  resetButton: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 20 },
+  resetButtonText: { color: '#ffffff', fontWeight: '600', fontSize: 13 },
 });

@@ -21,7 +21,7 @@ import apiClient, { TOKEN_STORAGE_KEY, USER_DATA_KEY } from './api/apiClient';
 
 /**
  * Standardize and map Firebase & API error codes to user-friendly messages
- * @param {Error|Object} error 
+ * @param {Error|Object} error
  * @returns {string}
  */
 export const formatAuthErrorMessage = (error) => {
@@ -51,11 +51,11 @@ export const formatAuthErrorMessage = (error) => {
   }
 
   // Google Sign-in status codes
-  if (error.code === statusCodes?.SIGN_IN_CANCELLED) {
+  if (statusCodes?.SIGN_IN_CANCELLED && error.code === statusCodes.SIGN_IN_CANCELLED) {
     return 'Người dùng đã hủy quá trình đăng nhập Google.';
-  } else if (error.code === statusCodes?.IN_PROGRESS) {
+  } else if (statusCodes?.IN_PROGRESS && error.code === statusCodes.IN_PROGRESS) {
     return 'Quá trình đăng nhập đang được tiến hành.';
-  } else if (error.code === statusCodes?.PLAY_SERVICES_NOT_AVAILABLE) {
+  } else if (statusCodes?.PLAY_SERVICES_NOT_AVAILABLE && error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
     return 'Google Play Services không khả dụng hoặc chưa được cập nhật.';
   }
 
@@ -68,7 +68,7 @@ export const formatAuthErrorMessage = (error) => {
 };
 
 export const isGoogleSignInCancelled = (error) =>
-  Boolean(statusCodes.SIGN_IN_CANCELLED) &&
+  Boolean(statusCodes?.SIGN_IN_CANCELLED) &&
   (error?.code === statusCodes.SIGN_IN_CANCELLED ||
     error?.originalError?.code === statusCodes.SIGN_IN_CANCELLED);
 
@@ -111,9 +111,9 @@ export const createBackendSessionForFirebaseUser = async (firebaseUser) => {
 };
 
 /**
- * Sign in with Email and Password using Firebase SDK and sync with Node.js backend
- * @param {string} email 
- * @param {string} password 
+ * Sign in with Email and Password using backend API (local authentication)
+ * @param {string} email
+ * @param {string} password
  * @returns {Promise<{ user: Object, token: string }>}
  */
 export const loginWithEmail = async (email, password) => {
@@ -123,14 +123,30 @@ export const loginWithEmail = async (email, password) => {
       throw new Error('Vui lòng nhập đầy đủ email và mật khẩu.');
     }
 
-    // 1. Authenticate against Firebase Auth modular SDK
-    const userCredential = await signInWithEmailAndPassword(auth, trimmedEmail, password);
-    const firebaseUser = userCredential.user;
+    // Call backend API for local authentication
+    const response = await apiClient.post('/auth/login', {
+      email: trimmedEmail,
+      password,
+    });
 
-    // 2. Exchange the Firebase ID token for a backend session JWT.
-    return await createBackendSessionForFirebaseUser(firebaseUser);
+    // Response structure from backend: { success: true, token, user }
+    const backendToken = response?.token;
+    const userData = response?.user;
+
+    if (!backendToken || !userData) {
+      throw new Error('Không thể lấy thông tin đăng nhập từ máy chủ.');
+    }
+
+    // Persist backend token and user data in AsyncStorage
+    await persistSession(backendToken, userData);
+
+    return {
+      user: userData,
+      token: backendToken,
+    };
   } catch (error) {
     const formattedError = new Error(formatAuthErrorMessage(error));
+    formattedError.code = error.code;
     formattedError.originalError = error;
     throw formattedError;
   }
@@ -149,7 +165,9 @@ export const loginWithGoogle = async () => {
     }
 
     // 1. Ensure Google Sign-In is configured with webClientId
-    configureGoogleSignIn();
+    if (typeof configureGoogleSignIn === 'function') {
+      configureGoogleSignIn();
+    }
 
     // 2. Ensure Google Play Services are available
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
@@ -248,19 +266,21 @@ export const registerWithEmail = async (email, password, fullName) => {
 };
 
 /**
- * Sign out user from Firebase, Google Sign-in, and clear AsyncStorage session
+ * Sign out user from Firebase and clear AsyncStorage session
  */
 export const logout = async () => {
   try {
     await signOut(auth);
 
-    try {
-      const isSignedIn = await GoogleSignin.isSignedIn();
-      if (isSignedIn) {
-        await GoogleSignin.signOut();
+    if (GoogleSignin) {
+      try {
+        const isSignedIn = await GoogleSignin.isSignedIn();
+        if (isSignedIn) {
+          await GoogleSignin.signOut();
+        }
+      } catch (e) {
+        // Ignored if GoogleSignin wasn't active
       }
-    } catch (e) {
-      // Ignored if GoogleSignin wasn't active or in web
     }
 
     await AsyncStorage.multiRemove([TOKEN_STORAGE_KEY, USER_DATA_KEY]);

@@ -17,12 +17,12 @@ import MyListingsScreen from '../screens/my-listings/MyListingsScreen';
 import PostItemScreen from '../screens/post-item/PostItemScreen';
 import OrderHistoryScreen from '../screens/orders/OrderHistoryScreen';
 import UserProfileScreen from '../screens/profile/UserProfileScreen';
+import EditProfileScreen from '../screens/profile/EditProfileScreen';
 import ProductDetailScreen from '../screens/product/ProductDetailScreen';
 import AIEstimatorScreen from '../screens/ai/AIEstimatorScreen';
 import AIChatbotScreen from '../screens/ai/AIChatbotScreen';
 import SettingsScreen from '../screens/settings/SettingsScreen';
 import AdminApprovalsScreen from '../screens/admin/AdminApprovalsScreen';
-
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -124,7 +124,15 @@ function MainStackNavigator() {
       }}
     >
       <Stack.Screen name="MainTabs" component={TabNavigator} options={{ headerShown: false }} />
-      <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ title: 'Chi tiết sản phẩm' }} />
+      <Stack.Screen
+        name="ProductDetail"
+        component={ProductDetailScreen}
+        options={{
+          headerShown: false,
+          animation: 'fade',
+          animationDuration: 250,
+        }}
+      />
       <Stack.Screen
         name="AIEstimator"
         component={AIEstimatorScreen}
@@ -136,6 +144,7 @@ function MainStackNavigator() {
         options={{ title: 'Trợ lý AI', presentation: 'modal', headerTintColor: primaryColor }}
       />
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Cài đặt' }} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: 'Chỉnh sửa hồ sơ' }} />
     </Stack.Navigator>
   );
 }

@@ -16,6 +16,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
 app.use((req, res, next) => {
   const limit = req.path.startsWith('/api/uploads/') ? '12mb' : '100kb';
   express.json({ limit })(req, res, next);
@@ -29,13 +30,17 @@ app.get('/', (req, res) => {
 // Auth Routes
 app.use('/api/auth', require('./src/routes/authRoutes'));
 
-// Upload requests are authenticated and have a larger JSON limit for base64 images.
+// Profile Routes
+app.use('/api/profile', require('./src/routes/profileRoutes'));
+
+// Upload & Admin Routes
 app.use('/api/uploads', require('./src/routes/uploadRoutes'));
 app.use('/api/admin/listings', require('./src/routes/adminListingRoutes'));
 
 // Error Handling Middleware (must be after all routes)
 app.use(notFound);
 app.use(errorHandler);
+
 // Port configuration and server listening
 const PORT = process.env.PORT || 5000;
 
