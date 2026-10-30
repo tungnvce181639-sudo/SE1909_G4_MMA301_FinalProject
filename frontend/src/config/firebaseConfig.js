@@ -71,3 +71,4 @@ export const configureGoogleSignIn = () => {
 
 export { app, auth, db, GoogleSignin };
 export default app;
+

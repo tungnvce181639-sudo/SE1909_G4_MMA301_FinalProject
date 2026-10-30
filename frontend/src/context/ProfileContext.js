@@ -28,6 +28,7 @@ const defaultProfile = {
 export function ProfileProvider({ children, initialProfile = defaultProfile }) {
   const auth = useAuth();
   const user = auth?.user;
+  const userId = user?.uid || user?.firebaseUid;
   const [profile, setProfile] = useState(initialProfile);
   const [loading, setLoading] = useState(Boolean(user));
 
@@ -43,7 +44,19 @@ export function ProfileProvider({ children, initialProfile = defaultProfile }) {
 
       setLoading(true);
       try {
-        const snapshot = await getDoc(doc(db, USERS_COLLECTION, user.uid));
+        if (!userId) {
+          const fullName = user.fullName || user.displayName || initialProfile.fullName;
+          setProfile({
+            ...initialProfile,
+            ...user,
+            fullName,
+            name: user.name || fullName,
+            role: user.role || null,
+          });
+          setLoading(false);
+          return;
+        }
+        const snapshot = await getDoc(doc(db, USERS_COLLECTION, userId));
         const data = snapshot.exists() ? snapshot.data() : {};
         const fullName = data.fullName || user.displayName || initialProfile.fullName;
         const avatarUrl = data.avatarUrl || null;
@@ -56,7 +69,7 @@ export function ProfileProvider({ children, initialProfile = defaultProfile }) {
             name: data.name || fullName,
             avatarUrl,
             avatar: data.avatar || avatarUrl,
-            role: data.role || null,
+            role: data.role || user.role || null,
           });
         }
       } catch (error) {
@@ -72,10 +85,10 @@ export function ProfileProvider({ children, initialProfile = defaultProfile }) {
     return () => {
       isActive = false;
     };
-  }, [initialProfile, user]);
+  }, [initialProfile, user, userId]);
 
   const updateProfileData = useCallback(async (updates) => {
-    if (!user) {
+    if (!userId) {
       throw new Error('Cannot update profile without an authenticated user.');
     }
 
@@ -94,14 +107,14 @@ export function ProfileProvider({ children, initialProfile = defaultProfile }) {
     }
 
     try {
-      await setDoc(doc(db, USERS_COLLECTION, user.uid), normalizedUpdates, { merge: true });
+      await setDoc(doc(db, USERS_COLLECTION, userId), normalizedUpdates, { merge: true });
       setProfile((currentProfile) => ({ ...currentProfile, ...normalizedUpdates }));
       return normalizedUpdates;
     } catch (error) {
       console.error('[ProfileContext] Updating profile failed:', error);
       throw error;
     }
-  }, [user]);
+  }, [userId]);
 
   const updateAvatar = useCallback(async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();

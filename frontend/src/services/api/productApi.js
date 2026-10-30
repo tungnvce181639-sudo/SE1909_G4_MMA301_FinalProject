@@ -4,15 +4,16 @@ import {
   doc,
   getDoc,
   addDoc,
+  setDoc,
   updateDoc,
   deleteDoc,
   query,
   where,
-  orderBy,
   limit as firestoreLimit,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
+import { app, db } from '../firebaseConfig';
+import apiClient from './apiClient';
 
 export const CATEGORIES = [
   { id: 'all', label: 'Tất cả\nDanh mục', icon: 'grid-outline', color: '#1a1c1f', background: '#f0f0f4' },
@@ -409,6 +410,7 @@ export async function getProducts({
     if (!snapshot.empty) {
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
+        if (['hidden', 'pending', 'rejected', 'sold'].includes(data.status)) return;
         list.push({
           id: docSnap.id,
           title: data.title || 'Sản phẩm không tên',
@@ -557,7 +559,6 @@ export async function getUserListings(uid) {
     const q = query(
       collection(db, 'products'),
       where('seller.uid', '==', uid),
-      orderBy('createdAt', 'desc'),
     );
     const snap = await getDocs(q);
     const all = snap.docs.map((docSnap) => {
@@ -591,12 +592,13 @@ export async function getUserListings(uid) {
 
     return {
       active: all.filter((p) => p.status === 'active' || p.status === 'showing'),
+      hidden: all.filter((p) => p.status === 'hidden'),
       pending: all.filter((p) => p.status === 'pending'),
       sold: all.filter((p) => p.status === 'sold'),
     };
   } catch (err) {
-    console.warn('[productApi] getUserListings error:', err.message);
-    return { active: [], pending: [], sold: [] };
+    console.error('[productApi] getUserListings failed:', err);
+    throw err;
   }
 }
 
@@ -635,4 +637,100 @@ export async function addListing(listingData) {
     status: 'pending',
   });
   return docRef.id;
+}
+
+async function uploadListingImage(uri, listingId) {
+  if (/^https?:\/\//i.test(uri)) return uri;
+  const isBase64Image = /^data:image\/[^;]+;base64,/i.test(uri);
+  if (!isBase64Image) {
+    throw new Error('Không đọc được dữ liệu ảnh. Vui lòng xóa ảnh này và chọn lại từ thư viện.');
+  }
+
+  let stage = 'uploading image through backend';
+  try {
+    const result = await apiClient.post(
+      '/uploads/image',
+      { listingId, imageData: uri },
+      { timeout: 120000 },
+    );
+    if (!result?.secureUrl) throw new Error('Máy chủ không trả về đường dẫn ảnh.');
+    return result.secureUrl;
+  } catch (error) {
+    console.error(`[productApi] Photo upload failed: ${JSON.stringify({
+      stage,
+      code: error?.code || error?.originalError?.code || 'unknown',
+      statusCode: error?.statusCode || error?.response?.status || error?.originalError?.response?.status || null,
+      message: error?.message || String(error),
+      errorName: error?.name || error?.originalError?.name || 'unknown',
+    })}`);
+    throw error;
+  }
+}
+
+async function uploadListingImages(images, listingId) {
+  if (!Array.isArray(images) || images.length < 1 || images.length > 5) {
+    throw new Error('Tin đăng cần có từ 1 đến 5 ảnh.');
+  }
+  const uploadedImages = [];
+  for (const uri of images) {
+    uploadedImages.push(await uploadListingImage(uri, listingId));
+  }
+  return uploadedImages;
+}
+
+// Uploads new photos through a backend-signed Cloudinary request, then creates the listing.
+export async function createListing(listingData, userId, images) {
+  if (!userId) throw new Error('Bạn cần đăng nhập để đăng tin.');
+  const listingRef = doc(collection(db, 'products'));
+  let stage = 'uploading images';
+  try {
+    const imageUrls = await uploadListingImages(images, listingRef.id);
+    stage = 'writing Firestore document';
+    await setDoc(listingRef, {
+      ...listingData,
+      images: imageUrls,
+      image: imageUrls[0],
+      seller: { ...listingData.seller, uid: userId },
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      views: 0,
+      saves: 0,
+      messages: 0,
+      status: 'pending',
+    });
+    return listingRef.id;
+  } catch (error) {
+    console.error(`[productApi] Listing create failed: ${JSON.stringify({
+      stage,
+      code: error?.code || error?.originalError?.code || 'unknown',
+      message: error?.message || String(error),
+      projectId: app.options.projectId || 'unknown',
+      database: '(default)',
+    })}`);
+    throw error;
+  }
+}
+
+// Confirms Firestore ownership before uploading or changing an existing listing.
+export async function updateListing(listingId, listingData, userId, images) {
+  if (!listingId || !userId) throw new Error('Thiếu thông tin tin đăng hoặc tài khoản.');
+  const listingRef = doc(db, 'products', listingId);
+  const listingSnapshot = await getDoc(listingRef);
+  if (!listingSnapshot.exists()) throw new Error('Tin đăng không còn tồn tại.');
+  const currentListing = listingSnapshot.data();
+  if (currentListing.seller?.uid !== userId) {
+    throw new Error('Bạn không có quyền chỉnh sửa tin đăng này.');
+  }
+
+  const imageUrls = await uploadListingImages(images, listingId);
+  await updateDoc(listingRef, {
+    ...listingData,
+    images: imageUrls,
+    image: imageUrls[0],
+    seller: { ...currentListing.seller, ...listingData.seller, uid: userId },
+    ...(currentListing.status === 'rejected'
+      ? { status: 'pending', rejectionReason: '', rejectedAt: null, rejectedBy: null }
+      : {}),
+    updatedAt: serverTimestamp(),
+  });
 }
