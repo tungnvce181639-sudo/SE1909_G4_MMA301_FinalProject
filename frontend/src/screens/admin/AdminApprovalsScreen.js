@@ -18,6 +18,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useProfile } from '../../context/ProfileContext';
 import apiClient from '../../services/api/apiClient';
 
 function getPrice(listing) {
@@ -27,6 +28,7 @@ function getPrice(listing) {
 export default function AdminApprovalsScreen() {
   const { theme, primaryColor } = useTheme();
   const { user } = useAuth();
+  const { profile } = useProfile();
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -143,7 +145,7 @@ export default function AdminApprovalsScreen() {
       description?.pickupSchedule && `Thời gian hẹn: ${description.pickupSchedule}`,
     ].filter(Boolean).join('\n\n');
 
-  if (user?.role !== 'admin') {
+  if (user?.role !== 'admin' && profile?.role !== 'admin') {
     return (
       <SafeAreaView style={[styles.safeArea, styles.center, { backgroundColor: theme.background }]}>
         <Text style={{ color: theme.text }}>Tài khoản này không có quyền quản trị.</Text>

@@ -10,6 +10,7 @@ import authService, {
   logout as serviceLogout,
   formatAuthErrorMessage,
   isGoogleSignInCancelled,
+  createBackendSessionForFirebaseUser,
 } from '../services/authService';
 import { TOKEN_STORAGE_KEY, USER_DATA_KEY } from '../services/api/apiClient';
 
@@ -45,9 +46,16 @@ export function AuthProvider({ children }) {
       try {
         if (firebaseUser) {
           const storedToken = await AsyncStorage.getItem(TOKEN_STORAGE_KEY);
-          const token = storedToken || (await firebaseUser.getIdToken());
-          setUser((currentUser) => currentUser || firebaseUser);
-          setUserToken(token);
+          const storedUserData = await AsyncStorage.getItem(USER_DATA_KEY);
+
+          if (storedToken) {
+            setUser((currentUser) => currentUser || (storedUserData ? JSON.parse(storedUserData) : firebaseUser));
+            setUserToken(storedToken);
+          } else {
+            const session = await createBackendSessionForFirebaseUser(firebaseUser);
+            setUser(session.user);
+            setUserToken(session.token);
+          }
         } else {
           setUser(null);
           setUserToken(null);
@@ -57,6 +65,10 @@ export function AuthProvider({ children }) {
         console.error('[AuthContext] Error syncing auth state:', error);
         setUser(null);
         setUserToken(null);
+        Alert.alert(
+          'Không khôi phục được phiên đăng nhập',
+          error.message || 'Vui lòng kiểm tra kết nối và đăng nhập lại.',
+        );
       } finally {
         setLoading(false);
       }

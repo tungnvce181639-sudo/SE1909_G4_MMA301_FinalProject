@@ -143,7 +143,7 @@ function MainStackNavigator() {
 export default function AppNavigator() {
   const { theme } = useTheme();
   const auth = useAuth();
-  const isAuthenticated = Boolean(auth && (auth.userToken || auth.user));
+  const isAuthenticated = Boolean(auth && !auth.loading && (auth.userToken || auth.user));
 
   return (
     <NavigationContainer

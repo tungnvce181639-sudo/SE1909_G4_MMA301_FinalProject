@@ -86,6 +86,30 @@ const persistSession = async (token, user) => {
   }
 };
 
+export const createBackendSessionForFirebaseUser = async (firebaseUser) => {
+  const idToken = await firebaseUser.getIdToken();
+  const response = await apiClient.post('/auth/firebase-login', { idToken });
+
+  if (!response?.token) {
+    throw new Error('Backend không trả về token đăng nhập. Vui lòng đăng nhập lại.');
+  }
+
+  const userData = response.user || {
+    uid: firebaseUser.uid,
+    email: firebaseUser.email,
+    fullName: firebaseUser.displayName || firebaseUser.email?.split('@')[0],
+    avatarUrl: firebaseUser.photoURL,
+  };
+
+  await persistSession(response.token, userData);
+
+  return {
+    user: userData,
+    token: response.token,
+    firebaseUser,
+  };
+};
+
 /**
  * Sign in with Email and Password using Firebase SDK and sync with Node.js backend
  * @param {string} email 
@@ -103,29 +127,8 @@ export const loginWithEmail = async (email, password) => {
     const userCredential = await signInWithEmailAndPassword(auth, trimmedEmail, password);
     const firebaseUser = userCredential.user;
 
-    // 2. Retrieve Firebase ID Token for backend verification
-    const idToken = await firebaseUser.getIdToken();
-
-    // 3. Sync with Node.js backend to get session JWT and DB user profile
-    const response = await apiClient.post('/auth/firebase-login', { idToken });
-
-    // Response structure from backend: { success: true, token, user }
-    const backendToken = response?.token || idToken;
-    const userData = response?.user || {
-      uid: firebaseUser.uid,
-      email: firebaseUser.email,
-      fullName: firebaseUser.displayName || firebaseUser.email.split('@')[0],
-      avatarUrl: firebaseUser.photoURL,
-    };
-
-    // 4. Persist backend token and user data in AsyncStorage
-    await persistSession(backendToken, userData);
-
-    return {
-      user: userData,
-      token: backendToken,
-      firebaseUser,
-    };
+    // 2. Exchange the Firebase ID token for a backend session JWT.
+    return await createBackendSessionForFirebaseUser(firebaseUser);
   } catch (error) {
     const formattedError = new Error(formatAuthErrorMessage(error));
     formattedError.originalError = error;
