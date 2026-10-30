@@ -15,7 +15,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { loginWithEmail, loginWithGoogle } from '../../services/authService';
+import {
+  isGoogleSignInCancelled,
+  loginWithEmail,
+  loginWithGoogle,
+} from '../../services/authService';
 
 const getScaledFontSize = (size, scale) =>
   size * (typeof scale === 'number' ? scale : 1);
@@ -101,6 +105,10 @@ export default function LoginScreen({ navigation }) {
       }
       showNotice('Đăng nhập Google thành công!', true);
     } catch (error) {
+      if (isGoogleSignInCancelled(error)) {
+        return;
+      }
+
       console.error('[LoginScreen] handleGoogleSignIn error:', error);
       Alert.alert(
         'Đăng nhập Google thất bại',

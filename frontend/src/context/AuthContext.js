@@ -9,6 +9,7 @@ import authService, {
   registerWithEmail as serviceRegisterWithEmail,
   logout as serviceLogout,
   formatAuthErrorMessage,
+  isGoogleSignInCancelled,
 } from '../services/authService';
 import { TOKEN_STORAGE_KEY, USER_DATA_KEY } from '../services/api/apiClient';
 
@@ -102,7 +103,9 @@ export function AuthProvider({ children }) {
       setUserToken(result.token);
       return result;
     } catch (error) {
-      Alert.alert('Đăng nhập Google thất bại', error.message || formatAuthErrorMessage(error));
+      if (!isGoogleSignInCancelled(error)) {
+        Alert.alert('Đăng nhập Google thất bại', error.message || formatAuthErrorMessage(error));
+      }
       throw error;
     } finally {
       setLoading(false);

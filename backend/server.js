@@ -29,9 +29,6 @@ app.get('/', (req, res) => {
 // Auth Routes
 app.use('/api/auth', require('./src/routes/authRoutes'));
 
-// Profile Routes
-app.use('/api/profile', require('./src/routes/profileRoutes'));
-
 // Upload requests are authenticated and have a larger JSON limit for base64 images.
 app.use('/api/uploads', require('./src/routes/uploadRoutes'));
 app.use('/api/admin/listings', require('./src/routes/adminListingRoutes'));

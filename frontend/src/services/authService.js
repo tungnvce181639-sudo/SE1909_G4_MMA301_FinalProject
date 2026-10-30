@@ -67,6 +67,11 @@ export const formatAuthErrorMessage = (error) => {
   return 'Xác thực thất bại. Vui lòng kiểm tra lại thông tin.';
 };
 
+export const isGoogleSignInCancelled = (error) =>
+  Boolean(statusCodes.SIGN_IN_CANCELLED) &&
+  (error?.code === statusCodes.SIGN_IN_CANCELLED ||
+    error?.originalError?.code === statusCodes.SIGN_IN_CANCELLED);
+
 /**
  * Helper to store session credentials into AsyncStorage
  * @param {string} token 
@@ -185,6 +190,7 @@ export const loginWithGoogle = async () => {
     };
   } catch (error) {
     const formattedError = new Error(formatAuthErrorMessage(error));
+    formattedError.code = error.code;
     formattedError.originalError = error;
     throw formattedError;
   }
