@@ -11,7 +11,9 @@ export function validateListing({ title, images, category, condition, price, des
   if (!description?.trim() || description.trim().length < 20) {
     errors.description = 'Mô tả cần ít nhất 20 ký tự.';
   }
-  if (!selectedLocation) errors.location = 'Vui lòng chọn điểm hẹn giao dịch.';
+  if (!selectedLocation || /^GPS\s*\(/i.test(selectedLocation)) {
+    errors.location = 'Vui lòng chọn tên đường hoặc địa điểm cụ thể trên bản đồ.';
+  }
 
   return errors;
 }

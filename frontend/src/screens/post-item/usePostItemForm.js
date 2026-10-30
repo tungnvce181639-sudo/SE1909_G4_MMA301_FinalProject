@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import * as Location from 'expo-location';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../services/firebaseConfig';
 import { createListing, updateListing } from '../../services/api/productApi';
@@ -121,63 +120,6 @@ export default function usePostItemForm({ navigation, listingId, user, profile }
     setValues((current) => ({ ...current, images: current.images.filter((_, position) => position !== index) }));
   }, []);
 
-  const pickLocation = useCallback(async () => {
-    try {
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (permission.status !== 'granted') {
-        Alert.alert('Cần cấp quyền', 'Cho phép truy cập vị trí hoặc chọn điểm hẹn trong danh sách.');
-        return;
-      }
-      if (Platform.OS === 'android') {
-        try {
-          await Location.enableNetworkProviderAsync();
-        } catch (error) {
-          console.warn('[PostItemScreen] Could not enable network location provider:', error);
-        }
-      }
-      if (!(await Location.hasServicesEnabledAsync())) {
-        Alert.alert('GPS đang tắt', 'Bật dịch vụ vị trí hoặc chọn điểm hẹn trong danh sách.');
-        return;
-      }
-
-      let position;
-      try {
-        position = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-          mayShowUserSettingsDialog: true,
-        });
-      } catch (currentError) {
-        position = await Location.getLastKnownPositionAsync({ maxAge: 5 * 60 * 1000, requiredAccuracy: 500 });
-        if (!position) throw currentError;
-      }
-
-      const coords = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      };
-      let label = `GPS (${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)})`;
-      try {
-        const [address] = await Location.reverseGeocodeAsync(coords);
-        if (address) {
-          label = [
-            address.name,
-            address.street,
-            address.district,
-            address.city,
-          ].filter(Boolean).join(', ') || label;
-        }
-      } catch (error) {
-        console.warn('[PostItemScreen] Reverse geocoding unavailable; keeping coordinates:', error);
-      }
-      setValues((current) => ({ ...current, location: label, locationCoords: coords }));
-      setErrors((current) => ({ ...current, location: undefined }));
-      Alert.alert('Đã ghim vị trí', 'Tọa độ GPS đã được lưu cùng tin đăng.');
-    } catch (error) {
-      console.warn('[PostItemScreen] GPS unavailable:', error);
-      Alert.alert('Không lấy được GPS', 'LDPlayer cần bật dịch vụ vị trí và đặt tọa độ bằng công cụ Location. Bạn vẫn có thể chọn điểm hẹn bên dưới.');
-    }
-  }, []);
-
   const reset = useCallback(() => {
     setValues(INITIAL_VALUES);
     setErrors({});
@@ -270,6 +212,6 @@ export default function usePostItemForm({ navigation, listingId, user, profile }
 
   return {
     values, errors, isSubmitting, isLoading, isEditing: Boolean(listingId),
-    change, addImages, removeImage, pickLocation, submit,
+    change, addImages, removeImage, submit,
   };
 }

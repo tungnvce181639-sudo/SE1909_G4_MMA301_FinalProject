@@ -103,10 +103,9 @@ export default function PostItemScreen({ navigation, route }) {
             selectedLocation={values.location}
             locationCoords={values.locationCoords}
             error={errors.location}
-            onPickGps={form.pickLocation}
-            onSelect={(location) => {
+            onSelect={(location, coords) => {
               form.change('location', location);
-              form.change('locationCoords', null);
+              form.change('locationCoords', coords);
             }}
           />
 
