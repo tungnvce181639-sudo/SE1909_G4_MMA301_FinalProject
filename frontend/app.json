@@ -10,10 +10,25 @@
     ],
     "plugins": [
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      "expo-notifications",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
     ],
     "android": {
       "package": "com.tungnv123.smartcampusmarket"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "fc576d93-d791-4bc1-8c9d-7232628fe67e"
+      }
+    },
+    "owner": "ducnqces-team"
   }
 }
