@@ -12,6 +12,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { analyzeProductImage, regenerateDescription } from '../../services/api/aiApi';
 
 const defaultResult = {
   estimatedPrice: '95.000đ',
@@ -25,6 +26,7 @@ export default function AIEstimatorScreen({ navigation }) {
   const { theme, isDarkMode, primaryColor, fontSizeScale } = useTheme();
   const [imageUri, setImageUri] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [aiResult, setAiResult] = useState(defaultResult);
   const [copied, setCopied] = useState(false);
 
@@ -46,26 +48,47 @@ export default function AIEstimatorScreen({ navigation }) {
     }
   };
 
-  const processImage = (uri) => {
+  const processImage = async (uri) => {
     setImageUri(uri);
     setLoading(true);
-    setTimeout(() => {
+    setError(null);
+    try {
+      const result = await analyzeProductImage(uri);
+      setAiResult(result);
+      setError(null);
+    } catch (error) {
+      console.error('[AIEstimatorScreen] Error processing image:', error);
+      setError(error.message || 'Không thể phân tích ảnh. Vui lòng kiểm tra kết nối và thử lại.');
+      Alert.alert(
+        'Lỗi phân tích',
+        error.message || 'Không thể phân tích ảnh. Vui lòng kiểm tra kết nối và thử lại.',
+        [
+          { text: 'Thử lại', onPress: () => processImage(uri) },
+          { text: 'Hủy', style: 'cancel', onPress: () => {} }
+        ]
+      );
+      // Fallback to default result on error
       setAiResult(defaultResult);
+    } finally {
       setLoading(false);
-    }, 1200);
+    }
   };
 
-  const regenerateTone = () => {
+  const regenerateTone = async () => {
     setLoading(true);
-    setTimeout(() => {
-      setAiResult((current) => ({
-        ...current,
-        title: 'Combo Sách Kỹ Thuật Lập Trình FPT K18 (Full Note Tips Qua Môn Cực Dễ)',
-        description:
-          'Pass gấp để dọn phòng KTX Dom A:\n• 2 cuốn: Giáo trình C/C++ PRF192 + Java PRO197 in bìa bóng, giấy trắng tinh\n• Tặng full file source code 10 assignment lab đạt 10/10 kì trước\n• Bonus mẹo thi PE bao pass 8.5+ gửi qua Google Drive\n• Giao dịch: Nhận đồ trực tiếp sảnh Dom A / Thư viện tầng 2 Hola',
-      }));
+    try {
+      const result = await regenerateDescription(aiResult, 'casual');
+      setAiResult(result);
+    } catch (error) {
+      console.error('[AIEstimatorScreen] Error regenerating description:', error);
+      Alert.alert(
+        'Lỗi tạo lại',
+        error.message || 'Không thể tạo lại mô tả. Vui lòng thử lại.',
+        [{ text: 'OK', onPress: () => {} }]
+      );
+    } finally {
       setLoading(false);
-    }, 700);
+    }
   };
 
   const copyDescription = () => {
@@ -110,6 +133,7 @@ export default function AIEstimatorScreen({ navigation }) {
             style={[styles.scanner, { backgroundColor: theme.border }]}
             onPress={pickImage}
             activeOpacity={0.85}
+            disabled={loading}
           >
             {imageUri ? (
               <Image source={{ uri: imageUri }} style={styles.scannerImage} />
@@ -133,12 +157,26 @@ export default function AIEstimatorScreen({ navigation }) {
               </View>
             </View>
           </TouchableOpacity>
+          {error && (
+            <View style={[styles.errorBanner, { backgroundColor: '#ffebee' }]}>
+              <Ionicons name="warning-outline" size={16} color="#d32f2f" />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
           <View style={styles.scannerActions}>
-            <TouchableOpacity style={[styles.smallButton, { backgroundColor: theme.background }]} onPress={pickImage}>
+            <TouchableOpacity
+              style={[styles.smallButton, { backgroundColor: theme.background, opacity: loading ? 0.5 : 1 }]}
+              onPress={pickImage}
+              disabled={loading}
+            >
               <Ionicons name="camera-outline" size={16} color={theme.text} />
               <Text style={[styles.smallButtonText, { color: theme.text }]}>Chụp lại</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.smallButton, { backgroundColor: theme.background }]} onPress={pickImage}>
+            <TouchableOpacity
+              style={[styles.smallButton, { backgroundColor: theme.background, opacity: loading ? 0.5 : 1 }]}
+              onPress={pickImage}
+              disabled={loading}
+            >
               <Ionicons name="swap-horizontal-outline" size={16} color={theme.text} />
               <Text style={[styles.smallButtonText, { color: theme.text }]}>Đổi ảnh khác</Text>
             </TouchableOpacity>
@@ -295,6 +333,8 @@ const styles = StyleSheet.create({
   scannerActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
   smallButton: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 5 },
   smallButtonText: { fontSize: 12, fontWeight: '600' },
+  errorBanner: { borderRadius: 8, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
+  errorText: { flex: 1, fontSize: 11, color: '#d32f2f' },
   sectionCard: { borderRadius: 14, padding: 16, gap: 10 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   sectionTitle: { fontSize: 14, fontWeight: '700' },
