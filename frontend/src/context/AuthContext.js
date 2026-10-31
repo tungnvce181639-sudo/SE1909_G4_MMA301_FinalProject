@@ -10,6 +10,7 @@ import authService, {
   isGoogleSignInCancelled,
 } from '../services/authService';
 import { TOKEN_STORAGE_KEY, USER_DATA_KEY } from '../services/api/apiClient';
+import { unregisterFromRemoteNotifications } from '../services/notificationService';
 
 export const AuthContext = createContext(null);
 
@@ -91,6 +92,11 @@ export function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     setLoading(true);
     try {
+      try {
+        await unregisterFromRemoteNotifications();
+      } catch (notificationError) {
+        console.warn('[AuthContext] Could not unregister push token before logout:', notificationError);
+      }
       await serviceLogout();
       setUser(null);
       setUserToken(null);

@@ -638,6 +638,16 @@ The following endpoints are planned for future milestones:
 - `PUT /notifications/:id/read` - Mark notification as read
 - `DELETE /notifications/:id` - Delete notification
 
+#### Expo Push
+
+These endpoints require a JWT bearer token:
+- `POST /notifications/device-token` with `{ "token": "ExponentPushToken[...]" }` registers the signed-in user's Expo push token.
+- `DELETE /notifications/device-token` removes the signed-in user's registered push token.
+- `PUT /notifications/preferences` with `{ "sound": true|false }` updates the signed-in user's push sound preference.
+- `POST /notifications/order-event` with `{ "orderId": "Firestore order document ID", "event": "created|approved|completed|cancelled" }` sends an update to the other order participant.
+
+The backend verifies the caller's participation and the current order status in Firestore before sending. Configure Firebase Admin credentials on the backend, link the Expo app to an EAS project with `npx eas-cli init`, and install a development or release build on a physical device to enable remote push. Expo Go supports only the local notifications in this flow.
+
 ---
 
 ## Support
