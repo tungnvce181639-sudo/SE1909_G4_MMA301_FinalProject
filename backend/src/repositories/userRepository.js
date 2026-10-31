@@ -42,6 +42,18 @@ class UserRepository {
     }
   }
 
+  async findByFirebaseUidOrId(uid) {
+    try {
+      if (/^[0-9a-f]{24}$/i.test(uid)) {
+        const byId = await User.findById(uid).select('+expoPushToken');
+        if (byId) return byId;
+      }
+      return await User.findOne({ firebaseUid: uid }).select('+expoPushToken');
+    } catch (error) {
+      throw error;
+    }
+  }
+
   /**
    * Finds a user by their database ID.
    * @param {string} id
@@ -67,6 +79,22 @@ class UserRepository {
         new: true,
         runValidators: true,
       });
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async updateExpoPushToken(id, token, sound) {
+    try {
+      const updates = {};
+      if (token !== undefined) updates.expoPushToken = token;
+      if (typeof sound === 'boolean') updates.notificationSound = sound;
+      if (!Object.keys(updates).length) throw new Error('No notification settings were provided.');
+      return await User.findByIdAndUpdate(
+        id,
+        updates,
+        { new: true, runValidators: true },
+      ).select('+expoPushToken');
     } catch (error) {
       throw error;
     }

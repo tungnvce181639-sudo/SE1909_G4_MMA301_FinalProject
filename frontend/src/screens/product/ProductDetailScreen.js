@@ -13,10 +13,15 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import { getProductById, getSuggestedProducts } from '../../services/api/productApi';
+import { createOrder } from '../../services/api/orderApi';
+import { notifyOrderEvent } from '../../services/api/notificationApi';
+import { sendOrderNotification } from '../../services/notificationService';
 
 export default function ProductDetailScreen({ navigation, route }) {
   const { theme, isDarkMode, primaryColor, fontSizeScale } = useTheme();
+  const { user } = useAuth();
   const { width } = useWindowDimensions();
 
   const [isLiked, setIsLiked] = useState(false);
@@ -132,6 +137,17 @@ export default function ProductDetailScreen({ navigation, route }) {
 
   // Order appointment action
   const handleOrderAppointment = () => {
+    if (!user) {
+      Alert.alert('Cần đăng nhập', 'Vui lòng đăng nhập để đặt hẹn nhận đồ.');
+      return;
+    }
+
+    const userId = user.uid || user.firebaseUid || user._id;
+    if (product?.seller?.uid && product.seller.uid === userId) {
+      Alert.alert('Không thể đặt mua', 'Bạn không thể đặt mua tin đăng của chính mình.');
+      return;
+    }
+
     Alert.alert(
       'Đặt hẹn nhận đồ',
       `Bạn có chắc chắn muốn đặt hẹn nhận "${title}" tại ${location}?`,
@@ -139,18 +155,44 @@ export default function ProductDetailScreen({ navigation, route }) {
         { text: 'Hủy', style: 'cancel' },
         {
           text: 'Xác nhận hẹn',
-          onPress: () => {
-            Alert.alert(
-              'Thành công',
-              'Yêu cầu hẹn nhận đồ đã được gửi tới người bán! Bạn có thể kiểm tra danh sách đơn hàng.',
-              [
-                {
-                  text: 'Xem Đơn hàng',
-                  onPress: () => navigation.navigate('MainTabs', { screen: 'Orders' }),
-                },
-                { text: 'Ở lại', style: 'cancel' },
-              ]
-            );
+          onPress: async () => {
+            try {
+              const order = await createOrder({
+                product: { ...product, id: product?.id || productId },
+                buyer: user,
+                sellerId: product?.seller?.uid,
+              });
+              let pushMessage = '';
+              try {
+                const pushResult = await notifyOrderEvent(order.id, 'created');
+                if (!pushResult?.sent) {
+                  pushMessage = ' Người bán chưa đăng ký Push nên có thể chưa nhận được thông báo.';
+                }
+              } catch (notificationError) {
+                console.warn('[ProductDetailScreen] Could not send seller push notification:', notificationError);
+                pushMessage = ' Chưa gửi được Push cho người bán; bạn vẫn có thể theo dõi trạng thái trong ứng dụng.';
+              }
+              try {
+                await sendOrderNotification('Đã gửi yêu cầu đặt hẹn', `${title} - Người bán sẽ sớm phản hồi.`);
+              } catch (notificationError) {
+                console.warn('[ProductDetailScreen] Could not show order notification:', notificationError);
+              }
+              Alert.alert(
+                'Đã gửi yêu cầu',
+                `Yêu cầu đặt hẹn đã được lưu.${pushMessage} Bạn có thể theo dõi trạng thái trong Lịch sử đơn hàng.`,
+                [
+                  {
+                    text: 'Xem đơn hàng',
+                    onPress: () => navigation.navigate('MainTabs', { screen: 'Orders' }),
+                  },
+                  { text: 'Ở lại', style: 'cancel' },
+                ],
+              );
+              return order;
+            } catch (error) {
+              console.error('[ProductDetailScreen] Could not create order:', error);
+              Alert.alert('Không thể đặt hẹn', error.message || 'Vui lòng kiểm tra kết nối rồi thử lại.');
+            }
           },
         },
       ]

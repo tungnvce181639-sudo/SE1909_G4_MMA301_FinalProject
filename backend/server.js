@@ -36,6 +36,7 @@ app.use('/api/profile', require('./src/routes/profileRoutes'));
 // Upload & Admin Routes
 app.use('/api/uploads', require('./src/routes/uploadRoutes'));
 app.use('/api/admin/listings', require('./src/routes/adminListingRoutes'));
+app.use('/api/notifications', require('./src/routes/notificationRoutes'));
 
 // Error Handling Middleware (must be after all routes)
 app.use(notFound);

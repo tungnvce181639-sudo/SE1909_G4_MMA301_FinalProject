@@ -13,9 +13,18 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
+import { useProfile } from '../../context/ProfileContext';
+import {
+  registerForRemoteNotifications,
+  requestNotificationPermission,
+  unregisterFromRemoteNotifications,
+  updateRemoteNotificationSound,
+} from '../../services/notificationService';
 
 const SETTINGS_KEY = '@smartcampus/settings';
 const colors = ['#f26f21', '#0031e8', '#006b55', '#8b5cf6', '#d946ef'];
+const defaultNotifications = { orders: false, campus: true, sound: false, wifi: true };
 
 export default function SettingsScreen({ navigation }) {
   const {
@@ -27,12 +36,11 @@ export default function SettingsScreen({ navigation }) {
     fontSizeScale,
     setFontSizeScale,
   } = useTheme();
-  const [notifications, setNotifications] = useState({
-    orders: true,
-    campus: true,
-    sound: false,
-    wifi: true,
-  });
+  const { user } = useAuth();
+  const { profile } = useProfile();
+  const userId = user?.uid || user?.firebaseUid || user?._id;
+  const [notifications, setNotifications] = useState(defaultNotifications);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -41,41 +49,99 @@ export default function SettingsScreen({ navigation }) {
       .then((storedSettings) => {
         if (!mounted || !storedSettings) return;
         const savedSettings = JSON.parse(storedSettings);
-        if (savedSettings.notifications) setNotifications(savedSettings.notifications);
-        if (savedSettings.primaryColor) setPrimaryColor(savedSettings.primaryColor);
-        if (savedSettings.fontSizeScale) setFontSizeScale(savedSettings.fontSizeScale);
+        if (savedSettings.notifications) {
+          setNotifications({ ...defaultNotifications, ...savedSettings.notifications });
+        }
       })
-      .catch((error) => console.warn('Không thể tải cài đặt:', error));
+      .catch((error) => console.warn('[SettingsScreen] Không thể tải cài đặt thông báo:', error))
+      .finally(() => {
+        if (mounted) setSettingsLoaded(true);
+      });
 
     return () => {
       mounted = false;
     };
-  }, [setFontSizeScale, setPrimaryColor]);
+  }, []);
 
   useEffect(() => {
+    if (!settingsLoaded) return;
+
     AsyncStorage.mergeItem(
       SETTINGS_KEY,
-      JSON.stringify({ notifications, primaryColor, fontSizeScale }),
-    ).catch((error) => console.warn('Không thể lưu cài đặt:', error));
-  }, [fontSizeScale, notifications, primaryColor]);
+      JSON.stringify({ notifications }),
+    ).catch((error) => console.warn('[SettingsScreen] Không thể lưu cài đặt thông báo:', error));
+  }, [notifications, settingsLoaded]);
 
-  const updateNotification = (key, value) => {
+  useEffect(() => {
+    if (!settingsLoaded || !notifications.orders || !userId) return undefined;
+    let active = true;
+
+    registerForRemoteNotifications(userId, notifications.sound).catch((error) => {
+      if (active) {
+        console.warn('[SettingsScreen] Push notification registration failed:', error);
+        Alert.alert('Push chưa sẵn sàng', error.message || 'Không thể đăng ký thông báo đẩy.');
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [notifications.orders, settingsLoaded, userId]);
+
+  const updateNotification = async (key, value) => {
+    if (key === 'orders' && value) {
+      try {
+        const permitted = await requestNotificationPermission();
+        if (!permitted) {
+          Alert.alert('Thông báo đang tắt', 'Hãy cấp quyền thông báo trong cài đặt thiết bị để nhận tin về đơn hàng.');
+          return;
+        }
+      } catch (error) {
+        console.error('[SettingsScreen] Không thể bật thông báo:', error);
+        Alert.alert('Không thể bật thông báo', 'Vui lòng thử lại sau.');
+        return;
+      }
+    }
+    if (key === 'orders' && !value) {
+      try {
+        await unregisterFromRemoteNotifications();
+      } catch (error) {
+        console.warn('[SettingsScreen] Could not unregister push token:', error);
+        Alert.alert('Chưa tắt được Push', 'Cài đặt thông báo trên thiết bị đã tắt, nhưng máy chủ chưa xóa được token. Hãy thử lại khi có kết nối mạng.');
+      }
+    }
+    if (key === 'sound') {
+      try {
+        await updateRemoteNotificationSound(value);
+      } catch (error) {
+        console.warn('[SettingsScreen] Could not update remote notification sound:', error);
+        Alert.alert('Chưa đồng bộ được âm thanh', 'Tùy chọn đã lưu trên thiết bị nhưng chưa cập nhật được trên máy chủ.');
+      }
+    }
     setNotifications((current) => ({ ...current, [key]: value }));
   };
 
   const clearAppCache = () => {
     Alert.alert(
       'Xóa bộ nhớ đệm?',
-      'Thao tác này sẽ xóa dữ liệu cục bộ và các cài đặt đã lưu trên thiết bị.',
+      'Thao tác này chỉ xóa cache ứng dụng, không xóa tài khoản hoặc cài đặt giao diện.',
       [
         { text: 'Hủy', style: 'cancel' },
         {
           text: 'Xóa',
           style: 'destructive',
-          onPress: () => {
-            AsyncStorage.clear()
-              .then(() => Alert.alert('Đã xóa cache', 'Bộ nhớ đệm ứng dụng đã được giải phóng.'))
-              .catch(() => Alert.alert('Không thể xóa cache', 'Vui lòng thử lại sau.'));
+          onPress: async () => {
+            try {
+              const keys = await AsyncStorage.getAllKeys();
+              const cacheKeys = keys.filter((key) => key.startsWith('@smartcampus/cache/'));
+              if (cacheKeys.length) await AsyncStorage.multiRemove(cacheKeys);
+              Alert.alert('Đã xóa cache', cacheKeys.length
+                ? 'Bộ nhớ đệm ứng dụng đã được giải phóng.'
+                : 'Hiện không có dữ liệu cache cần xóa.');
+            } catch (error) {
+              console.error('[SettingsScreen] Không thể xóa cache:', error);
+              Alert.alert('Không thể xóa cache', 'Vui lòng thử lại sau.');
+            }
           },
         },
       ],
@@ -99,7 +165,7 @@ export default function SettingsScreen({ navigation }) {
           <Ionicons name="arrow-back" size={24} color={theme.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.text, fontSize: 20 * fontSizeScale }]}>Cài đặt & Giao diện</Text>
-        <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('UserProfile')} accessibilityLabel="Tài khoản cá nhân">
+        <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('MainTabs', { screen: 'Profile' })} accessibilityLabel="Tài khoản cá nhân">
           <View style={[styles.profileIcon, { backgroundColor: primaryColor }]}>
             <Ionicons name="person" size={16} color="#ffffff" />
           </View>
@@ -109,15 +175,15 @@ export default function SettingsScreen({ navigation }) {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <TouchableOpacity style={[styles.profileCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
           <Image
-            source={{ uri: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200' }}
+            source={{ uri: profile.avatarUrl || profile.avatar || user?.avatarUrl || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200' }}
             style={styles.profileImage}
           />
           <View style={styles.profileCopy}>
             <View style={styles.profileNameRow}>
-              <Text style={[styles.profileName, { color: theme.text }]}>Nguyễn Minh Quân</Text>
+              <Text style={[styles.profileName, { color: theme.text }]}>{profile.fullName || user?.fullName || user?.displayName || 'Sinh viên FPT'}</Text>
               <Ionicons name="checkmark-circle" size={17} color="#0031e8" />
             </View>
-            <Text style={[styles.profileEmail, { color: theme.textSecondary }]}>quan.nm.se17@fpt.edu.vn</Text>
+            <Text style={[styles.profileEmail, { color: theme.textSecondary }]}>{user?.email || 'Tài khoản sinh viên'}</Text>
             <View style={[styles.studentBadge, { backgroundColor: '#dee0ff' }]}>
               <Ionicons name="school-outline" size={12} color="#002bcf" />
               <Text style={styles.studentBadgeText}>Sinh viên FPT đã xác thực</Text>

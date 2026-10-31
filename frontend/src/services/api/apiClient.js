@@ -13,10 +13,8 @@ const getBaseUrl = () => {
 
   // Auto-detect platform and use appropriate URL
   if (Platform.OS === 'android') {
-    // Try to detect if running on emulator or physical device
-    // Default to physical device IP (172.20.10.2) which should work for both
-    // If using emulator, user can set EXPO_PUBLIC_API_URL=10.0.2.2
-    return 'http://172.20.10.2:5000/api';
+    // Android Emulator uses this special host address to reach the development machine.
+    return 'http://10.0.2.2:5000/api';
   }
 
   // For iOS and web, use localhost
