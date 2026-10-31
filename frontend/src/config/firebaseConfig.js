@@ -42,3 +42,4 @@ export const USERS_COLLECTION = 'users';
 
 export { app, auth, db };
 export default app;
+

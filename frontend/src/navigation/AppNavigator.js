@@ -1,5 +1,4 @@
 import React from 'react';
-import { Text, View } from 'react-native';
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -14,8 +13,8 @@ import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import OTPVerificationScreen from '../screens/auth/OTPVerificationScreen';
 import CreateNewPasswordScreen from '../screens/auth/CreateNewPasswordScreen';
 import HomeScreen from '../screens/home/HomeScreen';
-import MyListingsScreen from '../screens/product/MyListingsScreen';
-import PostItemScreen from '../screens/product/PostItemScreen';
+import MyListingsScreen from '../screens/my-listings/MyListingsScreen';
+import PostItemScreen from '../screens/post-item/PostItemScreen';
 import OrderHistoryScreen from '../screens/orders/OrderHistoryScreen';
 import UserProfileScreen from '../screens/profile/UserProfileScreen';
 import EditProfileScreen from '../screens/profile/EditProfileScreen';
@@ -23,18 +22,10 @@ import ProductDetailScreen from '../screens/product/ProductDetailScreen';
 import AIEstimatorScreen from '../screens/ai/AIEstimatorScreen';
 import AIChatbotScreen from '../screens/ai/AIChatbotScreen';
 import SettingsScreen from '../screens/settings/SettingsScreen';
-
+import AdminApprovalsScreen from '../screens/admin/AdminApprovalsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
-
-function AdminDashboardScreen() {
-  return (
-    <View>
-      <Text>Admin Dashboard</Text>
-    </View>
-  );
-}
 
 const tabScreens = {
   Home: {
@@ -68,7 +59,7 @@ const tabScreens = {
     activeIcon: 'person',
   },
   Admin: {
-    component: AdminDashboardScreen,
+    component: AdminApprovalsScreen,
     label: 'Duyệt bài',
     icon: 'shield-checkmark-outline',
     activeIcon: 'shield-checkmark',
@@ -78,7 +69,8 @@ const tabScreens = {
 function TabNavigator() {
   const { theme, primaryColor } = useTheme();
   const { profile, loading: profileLoading } = useProfile();
-  const { role } = profile || {};
+  const { user } = useAuth();
+  const role = profile?.role || user?.role;
   const visibleTabScreens = Object.fromEntries(
     Object.entries(tabScreens).filter(([name]) => name !== 'Admin' || (!profileLoading && role === 'admin')),
   );
@@ -132,7 +124,15 @@ function MainStackNavigator() {
       }}
     >
       <Stack.Screen name="MainTabs" component={TabNavigator} options={{ headerShown: false }} />
-      <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ title: 'Chi tiết sản phẩm' }} />
+      <Stack.Screen
+        name="ProductDetail"
+        component={ProductDetailScreen}
+        options={{
+          headerShown: false,
+          animation: 'fade',
+          animationDuration: 250,
+        }}
+      />
       <Stack.Screen
         name="AIEstimator"
         component={AIEstimatorScreen}
@@ -152,7 +152,7 @@ function MainStackNavigator() {
 export default function AppNavigator() {
   const { theme } = useTheme();
   const auth = useAuth();
-  const isAuthenticated = Boolean(auth && (auth.userToken || auth.user));
+  const isAuthenticated = Boolean(auth && !auth.loading && (auth.userToken || auth.user));
 
   return (
     <NavigationContainer

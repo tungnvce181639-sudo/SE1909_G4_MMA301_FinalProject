@@ -2,10 +2,21 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  signInWithCredential,
+  GoogleAuthProvider,
   signOut,
   updateProfile,
 } from 'firebase/auth';
-import { auth } from '../config/firebaseConfig';
+let GoogleSignin = null;
+let statusCodes = {};
+try {
+  const gSignInModule = require('@react-native-google-signin/google-signin');
+  GoogleSignin = gSignInModule.GoogleSignin;
+  statusCodes = gSignInModule.statusCodes || {};
+} catch (e) {
+  // Graceful fallback for non-native / Expo Go environments
+}
+import { auth, configureGoogleSignIn } from '../config/firebaseConfig';
 import apiClient, { TOKEN_STORAGE_KEY, USER_DATA_KEY } from './api/apiClient';
 
 /**
@@ -33,8 +44,19 @@ export const formatAuthErrorMessage = (error) => {
       return 'Mật khẩu phải có độ dài tối thiểu 6 ký tự.';
     case 'auth/network-request-failed':
       return 'Lỗi kết nối mạng. Vui lòng kiểm tra lại đường truyền internet.';
+    case 'auth/popup-closed-by-user':
+      return 'Cửa sổ đăng nhập Google đã bị đóng.';
     default:
       break;
+  }
+
+  // Google Sign-in status codes
+  if (statusCodes?.SIGN_IN_CANCELLED && error.code === statusCodes.SIGN_IN_CANCELLED) {
+    return 'Người dùng đã hủy quá trình đăng nhập Google.';
+  } else if (statusCodes?.IN_PROGRESS && error.code === statusCodes.IN_PROGRESS) {
+    return 'Quá trình đăng nhập đang được tiến hành.';
+  } else if (statusCodes?.PLAY_SERVICES_NOT_AVAILABLE && error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+    return 'Google Play Services không khả dụng hoặc chưa được cập nhật.';
   }
 
   // Backend API error message
@@ -44,6 +66,11 @@ export const formatAuthErrorMessage = (error) => {
 
   return 'Xác thực thất bại. Vui lòng kiểm tra lại thông tin.';
 };
+
+export const isGoogleSignInCancelled = (error) =>
+  Boolean(statusCodes?.SIGN_IN_CANCELLED) &&
+  (error?.code === statusCodes.SIGN_IN_CANCELLED ||
+    error?.originalError?.code === statusCodes.SIGN_IN_CANCELLED);
 
 /**
  * Helper to store session credentials into AsyncStorage
@@ -59,6 +86,30 @@ const persistSession = async (token, user) => {
   }
 };
 
+export const createBackendSessionForFirebaseUser = async (firebaseUser) => {
+  const idToken = await firebaseUser.getIdToken();
+  const response = await apiClient.post('/auth/firebase-login', { idToken });
+
+  if (!response?.token) {
+    throw new Error('Backend không trả về token đăng nhập. Vui lòng đăng nhập lại.');
+  }
+
+  const userData = response.user || {
+    uid: firebaseUser.uid,
+    email: firebaseUser.email,
+    fullName: firebaseUser.displayName || firebaseUser.email?.split('@')[0],
+    avatarUrl: firebaseUser.photoURL,
+  };
+
+  await persistSession(response.token, userData);
+
+  return {
+    user: userData,
+    token: response.token,
+    firebaseUser,
+  };
+};
+
 /**
  * Sign in with Email and Password using backend API (local authentication)
  * @param {string} email
@@ -72,7 +123,7 @@ export const loginWithEmail = async (email, password) => {
       throw new Error('Vui lòng nhập đầy đủ email và mật khẩu.');
     }
 
-    // Call backend API for local authentication (not Firebase)
+    // Call backend API for local authentication
     const response = await apiClient.post('/auth/login', {
       email: trimmedEmail,
       password,
@@ -95,12 +146,76 @@ export const loginWithEmail = async (email, password) => {
     };
   } catch (error) {
     const formattedError = new Error(formatAuthErrorMessage(error));
+    formattedError.code = error.code;
     formattedError.originalError = error;
     throw formattedError;
   }
 };
 
+/**
+ * Sign in with Google using GoogleSignin + Firebase SDK, then sync with backend
+ * @returns {Promise<{ user: Object, token: string }>}
+ */
+export const loginWithGoogle = async () => {
+  try {
+    if (!GoogleSignin) {
+      throw new Error(
+        'Đăng nhập Google yêu cầu cấu hình native hoặc development build (EAS Build / Android build).'
+      );
+    }
 
+    // 1. Ensure Google Sign-In is configured with webClientId
+    if (typeof configureGoogleSignIn === 'function') {
+      configureGoogleSignIn();
+    }
+
+    // 2. Ensure Google Play Services are available
+    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+
+    // 3. Initiate Google OAuth sign-in prompt
+    const signInResult = await GoogleSignin.signIn();
+    const googleIdToken = signInResult.data?.idToken || signInResult.idToken;
+
+    if (!googleIdToken) {
+      throw new Error('Không thể lấy ID Token từ Google Sign-In.');
+    }
+
+    // 4. Authenticate with Firebase using the Google credential
+    const credential = GoogleAuthProvider.credential(googleIdToken);
+    const userCredential = await signInWithCredential(auth, credential);
+    const firebaseUser = userCredential.user;
+
+    // 5. Get fresh Firebase ID Token
+    const firebaseIdToken = await firebaseUser.getIdToken();
+
+    // 6. Sync with Node.js backend (/api/auth/firebase-login or /api/auth/google)
+    const response = await apiClient.post('/auth/google', {
+      idToken: firebaseIdToken || googleIdToken,
+    });
+
+    const backendToken = response?.token || firebaseIdToken;
+    const userData = response?.user || {
+      uid: firebaseUser.uid,
+      email: firebaseUser.email,
+      fullName: firebaseUser.displayName || 'Sinh viên FPT',
+      avatarUrl: firebaseUser.photoURL,
+    };
+
+    // 7. Persist session token and user profile
+    await persistSession(backendToken, userData);
+
+    return {
+      user: userData,
+      token: backendToken,
+      firebaseUser,
+    };
+  } catch (error) {
+    const formattedError = new Error(formatAuthErrorMessage(error));
+    formattedError.code = error.code;
+    formattedError.originalError = error;
+    throw formattedError;
+  }
+};
 
 /**
  * Register a new user with email, password, and full name
@@ -156,6 +271,18 @@ export const registerWithEmail = async (email, password, fullName) => {
 export const logout = async () => {
   try {
     await signOut(auth);
+
+    if (GoogleSignin) {
+      try {
+        const isSignedIn = await GoogleSignin.isSignedIn();
+        if (isSignedIn) {
+          await GoogleSignin.signOut();
+        }
+      } catch (e) {
+        // Ignored if GoogleSignin wasn't active
+      }
+    }
+
     await AsyncStorage.multiRemove([TOKEN_STORAGE_KEY, USER_DATA_KEY]);
   } catch (error) {
     console.error('[authService] Error logging out:', error);
@@ -192,6 +319,7 @@ export const getStoredUser = async () => {
 
 export default {
   loginWithEmail,
+  loginWithGoogle,
   registerWithEmail,
   logout,
   getStoredToken,

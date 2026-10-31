@@ -1,13 +1,13 @@
 import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../config/firebaseConfig';
 import authService, {
   loginWithEmail as serviceLoginWithEmail,
+  loginWithGoogle as serviceLoginWithGoogle,
   registerWithEmail as serviceRegisterWithEmail,
   logout as serviceLogout,
   formatAuthErrorMessage,
+  isGoogleSignInCancelled,
 } from '../services/authService';
 import { TOKEN_STORAGE_KEY, USER_DATA_KEY } from '../services/api/apiClient';
 
@@ -71,6 +71,23 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  const googleSignIn = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await serviceLoginWithGoogle();
+      setUser(result.user);
+      setUserToken(result.token);
+      return result;
+    } catch (error) {
+      if (!isGoogleSignInCancelled(error)) {
+        Alert.alert('Đăng nhập Google thất bại', error.message || formatAuthErrorMessage(error));
+      }
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const logout = useCallback(async () => {
     setLoading(true);
     try {
@@ -93,9 +110,10 @@ export function AuthProvider({ children }) {
       userToken,
       login,
       register,
+      googleSignIn,
       logout,
     }),
-    [loading, login, logout, register, user, userToken],
+    [googleSignIn, loading, login, logout, register, user, userToken],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

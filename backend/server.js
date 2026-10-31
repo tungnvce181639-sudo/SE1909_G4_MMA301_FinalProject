@@ -16,7 +16,11 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(express.json());
+
+app.use((req, res, next) => {
+  const limit = req.path.startsWith('/api/uploads/') ? '12mb' : '100kb';
+  express.json({ limit })(req, res, next);
+});
 
 // Basic test route
 app.get('/', (req, res) => {
@@ -28,6 +32,10 @@ app.use('/api/auth', require('./src/routes/authRoutes'));
 
 // Profile Routes
 app.use('/api/profile', require('./src/routes/profileRoutes'));
+
+// Upload & Admin Routes
+app.use('/api/uploads', require('./src/routes/uploadRoutes'));
+app.use('/api/admin/listings', require('./src/routes/adminListingRoutes'));
 
 // Error Handling Middleware (must be after all routes)
 app.use(notFound);
