@@ -1,12 +1,45 @@
-import React from 'react';
-import { StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CATEGORIES, CONDITIONS } from './listingConstants';
+import { generateDescription } from '../../services/api/aiApi';
 
 // Keeps listing inputs and their validation feedback separate from screen layout.
 export default function ProductInfoForm({
   values, errors, theme, primaryColor, onChange, onSelectCategory, onSelectCondition,
 }) {
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleGenerateDescription = async () => {
+    if (!values.title && !values.category && !values.price) {
+      Alert.alert('Thiếu thông tin', 'Vui lòng nhập ít nhất tiêu đề, danh mục hoặc giá bán để AI có thể viết mô tả.');
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const result = await generateDescription({
+        title: values.title,
+        category: CATEGORIES.find(c => c.id === values.category)?.label || values.category,
+        condition: CONDITIONS.find(c => c.id === values.condition)?.label || values.condition,
+        price: values.price,
+        images: values.images,
+      });
+
+      onChange('title', result.title);
+      onChange('description', result.description);
+      Alert.alert('Đã tạo mô tả', 'AI đã viết nội dung mô tả cho sản phẩm của bạn. Bạn có thể chỉnh sửa trước khi đăng.');
+    } catch (error) {
+      console.error('[ProductInfoForm] Error generating description:', error);
+      Alert.alert(
+        'Lỗi tạo mô tả',
+        error.message || 'Không thể tạo mô tả. Vui lòng kiểm tra kết nối và thử lại.',
+        [{ text: 'OK', onPress: () => {} }]
+      );
+    } finally {
+      setIsGenerating(false);
+    }
+  };
   const field = (label, key, placeholder, options) => (
     <View style={styles.field}>
       <Text style={[styles.label, { color: theme.text }]}>{label} *</Text>
@@ -79,10 +112,20 @@ export default function ProductInfoForm({
       <Text style={[styles.helper, { color: theme.textSecondary }]}>
         {values.description.length} ký tự (tối thiểu 20)
       </Text>
-      <View style={styles.aiRow}>
-        <Ionicons name="sparkles-outline" size={15} color={primaryColor} />
-        <Text style={[styles.helper, { color: primaryColor }]}>Bạn có thể dùng AI để gợi ý nội dung sau.</Text>
-      </View>
+      <TouchableOpacity
+        style={[styles.aiButton, { backgroundColor: theme.background, opacity: isGenerating ? 0.6 : 1 }]}
+        onPress={handleGenerateDescription}
+        disabled={isGenerating}
+      >
+        {isGenerating ? (
+          <ActivityIndicator size="small" color={primaryColor} />
+        ) : (
+          <Ionicons name="sparkles" size={16} color={primaryColor} />
+        )}
+        <Text style={[styles.aiButtonText, { color: primaryColor }]}>
+          {isGenerating ? 'Đang viết mô tả...' : 'Viết mô tả bằng AI'}
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -101,4 +144,6 @@ const styles = StyleSheet.create({
   negotiableText: { gap: 3 },
   helper: { fontSize: 11 },
   aiRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  aiButton: { borderRadius: 8, padding: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 4 },
+  aiButtonText: { fontSize: 12, fontWeight: '600' },
 });

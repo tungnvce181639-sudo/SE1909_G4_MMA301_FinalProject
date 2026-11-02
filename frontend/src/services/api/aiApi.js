@@ -169,7 +169,71 @@ Trả về kết quả dưới dạng JSON:
   }
 };
 
+/**
+ * Tạo mô tả sản phẩm dựa trên thông tin chi tiết
+ * @param {Object} productInfo - Thông tin sản phẩm { title, category, condition, price, images }
+ * @returns {Promise<Object>} - { title, description }
+ */
+export const generateDescription = async (productInfo) => {
+  try {
+    const genAI = getGeminiClient();
+    if (!genAI) {
+      throw new Error('Không tìm thấy API Key Gemini.');
+    }
+
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+    const prompt = `Bạn là chuyên gia viết bài đăng bán đồ cũ cho sinh viên FPT University. Hãy viết một bài đăng hấp dẫn dựa trên thông tin sau:
+
+Tiêu đề hiện tại: ${productInfo.title || 'Chưa có tiêu đề'}
+Danh mục: ${productInfo.category || 'Chưa phân loại'}
+Tình trạng: ${productInfo.condition || 'Chưa xác định'}
+Giá bán: ${productInfo.price ? `${Number(productInfo.price).toLocaleString('vi-VN')}đ` : 'Chưa có giá'}
+Số lượng ảnh: ${productInfo.images?.length || 0} ảnh
+
+Yêu cầu:
+- Viết tiêu đề ngắn gọn, hấp dẫn (tối đa 80 ký tự)
+- Viết mô tả chi tiết với văn phong sinh viên FPT, thân thiện, thực tế
+- Bao gồm: tình trạng chi tiết, đặc điểm nổi bật, lý do bán, quà tặng kèm (nếu có), nơi giao dịch
+- Nhấn mạnh lợi ích cho người mua (giá rẻ, tiện lợi, kèm tài liệu...)
+- Sử dụng định dạng bullet points để dễ đọc
+- Kết thúc với lời kêu gọi hành động nhẹ nhàng
+
+Trả về kết quả dưới dạng JSON:
+{
+  "title": "tiêu đề hấp dẫn (tối đa 80 ký tự)",
+  "description": "mô tả chi tiết với văn phong sinh viên"
+}`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    let parsedResult;
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        parsedResult = JSON.parse(jsonMatch[0]);
+      } else {
+        parsedResult = JSON.parse(text);
+      }
+    } catch (parseError) {
+      console.error('[aiApi] Error parsing description response:', parseError);
+      throw new Error('Không thể phân tích kết quả từ AI.');
+    }
+
+    return {
+      title: parsedResult.title || productInfo.title || 'Sản phẩm chưa đặt tên',
+      description: parsedResult.description || 'Chưa có mô tả',
+    };
+  } catch (error) {
+    console.error('[aiApi] Error generating description:', error);
+    throw error;
+  }
+};
+
 export default {
   analyzeProductImage,
   regenerateDescription,
+  generateDescription,
 };
