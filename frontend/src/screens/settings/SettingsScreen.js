@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Image,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Switch,
@@ -10,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
