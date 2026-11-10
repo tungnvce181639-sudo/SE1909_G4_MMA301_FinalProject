@@ -103,9 +103,9 @@ export default function ProductDetailScreen({ navigation, route }) {
             typeof product?.description === 'string'
               ? product.description
               : 'Sản phẩm chính chủ sinh viên FPT pass lại, tình trạng đúng như mô tả thực tế.',
-          gift: 'Tặng kèm phụ kiện / tài liệu hỗ trợ môn học qua kỳ tại Hola.',
-          reason: 'Đã hoàn thành môn học hoặc dư dùng pass lại cho tân sinh viên K18/K19.',
-          pickupSchedule: 'Hẹn gặp trực tiếp tại sảnh KTX hoặc căn tin trường FPT.',
+          gift: '',
+          reason: '',
+          pickupSchedule: '',
         };
 
   const title = product?.title || 'Chi tiết sản phẩm';
@@ -346,38 +346,46 @@ export default function ProductDetailScreen({ navigation, route }) {
               Mô tả chi tiết sản phẩm
             </Text>
             <View style={[styles.descriptionCard, { backgroundColor: theme.card }]}>
-              <DescriptionRow
-                icon="book-outline"
-                color="#006b55"
-                title="Tình trạng thực tế:"
-                text={description.conditionDetail || 'Sản phẩm nguyên vẹn, sử dụng rất tốt.'}
-                theme={theme}
-                fontSizeScale={fontSizeScale}
-              />
-              <DescriptionRow
-                icon="folder-open-outline"
-                color={primaryColor}
-                title="Quà tặng / Ưu đãi kèm theo:"
-                text={description.gift || 'Hỗ trợ giao dịch trực tiếp trong ngày.'}
-                theme={theme}
-                fontSizeScale={fontSizeScale}
-              />
-              <DescriptionRow
-                icon="shield-checkmark-outline"
-                color="#0031e8"
-                title="Lý do nhượng lại:"
-                text={description.reason || 'Dư dùng pass lại cho các bạn sinh viên cần.'}
-                theme={theme}
-                fontSizeScale={fontSizeScale}
-              />
-              <DescriptionRow
-                icon="time-outline"
-                color={theme.textSecondary}
-                title="Thời gian rảnh nhận đồ:"
-                text={description.pickupSchedule || 'Sau giờ học các ngày trong tuần hoặc cuối tuần.'}
-                theme={theme}
-                fontSizeScale={fontSizeScale}
-              />
+              {Boolean(description?.conditionDetail) && (
+                <DescriptionRow
+                  icon="book-outline"
+                  color="#006b55"
+                  title="Tình trạng thực tế:"
+                  text={description.conditionDetail}
+                  theme={theme}
+                  fontSizeScale={fontSizeScale}
+                />
+              )}
+              {Boolean(description?.gift) && (
+                <DescriptionRow
+                  icon="folder-open-outline"
+                  color={primaryColor}
+                  title="Quà tặng / Ưu đãi kèm theo:"
+                  text={description.gift}
+                  theme={theme}
+                  fontSizeScale={fontSizeScale}
+                />
+              )}
+              {Boolean(description?.reason) && (
+                <DescriptionRow
+                  icon="shield-checkmark-outline"
+                  color="#0031e8"
+                  title="Lý do nhượng lại:"
+                  text={description.reason}
+                  theme={theme}
+                  fontSizeScale={fontSizeScale}
+                />
+              )}
+              {Boolean(description?.pickupSchedule) && (
+                <DescriptionRow
+                  icon="time-outline"
+                  color={theme.textSecondary}
+                  title="Thời gian rảnh nhận đồ:"
+                  text={description.pickupSchedule}
+                  theme={theme}
+                  fontSizeScale={fontSizeScale}
+                />
+              )}
             </View>
           </View>
 

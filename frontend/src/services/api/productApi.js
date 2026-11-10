@@ -812,9 +812,9 @@ export async function getProducts({
             ? data.images
             : (data.image ? [data.image] : ['https://images.unsplash.com/photo-1544717305-2782549b5136?w=1000&q=80']),
           verified: Boolean(data.verified),
-          description: typeof data.description === 'object'
+          description: typeof data.description === 'object' && data.description !== null
             ? data.description
-            : { conditionDetail: data.description || 'Mô tả chi tiết sản phẩm.', gift: 'Hỗ trợ giao dịch trực tiếp.', reason: 'Pass đồ sinh viên.', pickupSchedule: 'Hẹn trực tiếp tại Campus.' },
+            : { conditionDetail: data.description || 'Mô tả chi tiết sản phẩm.', gift: '', reason: '', pickupSchedule: '' },
           createdAt: data.createdAt ? 'Vừa xong' : 'Hôm nay',
         });
       });

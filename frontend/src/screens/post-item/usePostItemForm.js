@@ -14,6 +14,9 @@ const INITIAL_VALUES = {
   condition: '',
   price: '',
   description: '',
+  gift: '',
+  reason: '',
+  pickupSchedule: '',
   location: LOCATIONS[0],
   locationCoords: null,
   negotiable: true,
@@ -48,6 +51,7 @@ export default function usePostItemForm({ navigation, listingId, user, profile }
           throw new Error('Bạn không có quyền chỉnh sửa tin này.');
         }
         if (!active) return;
+        const isObjDesc = typeof data.description === 'object' && data.description !== null;
         setExistingListing(data);
         setValues({
           ...INITIAL_VALUES,
@@ -56,7 +60,12 @@ export default function usePostItemForm({ navigation, listingId, user, profile }
           category: data.category || '',
           condition: data.condition || '',
           price: String(data.price ?? ''),
-          description: typeof data.description === 'string' ? data.description : '',
+          description: isObjDesc
+            ? (data.description.conditionDetail || '')
+            : (typeof data.description === 'string' ? data.description : ''),
+          gift: isObjDesc ? (data.description.gift || '') : '',
+          reason: isObjDesc ? (data.description.reason || '') : '',
+          pickupSchedule: isObjDesc ? (data.description.pickupSchedule || '') : '',
           location: data.location || LOCATIONS[0],
           locationCoords: data.locationCoords || null,
           negotiable: data.negotiable ?? true,
@@ -149,6 +158,12 @@ export default function usePostItemForm({ navigation, listingId, user, profile }
     setIsSubmitting(true);
     try {
       const numericPrice = Number(String(values.price).replace(/[^0-9]/g, ''));
+      const descriptionPayload = {
+        conditionDetail: values.description.trim(),
+        gift: values.gift?.trim() || '',
+        reason: values.reason?.trim() || '',
+        pickupSchedule: values.pickupSchedule?.trim() || '',
+      };
       const listingData = {
         title: values.title.trim(),
         category: values.category,
@@ -156,7 +171,7 @@ export default function usePostItemForm({ navigation, listingId, user, profile }
         conditionLabel: condition?.label || values.condition,
         price: numericPrice,
         priceDisplay: `${numericPrice.toLocaleString('vi-VN')} ₫`,
-        description: values.description.trim(),
+        description: descriptionPayload,
         location: values.location,
         locationCoords: values.locationCoords,
         campus: 'FPT Hòa Lạc',
