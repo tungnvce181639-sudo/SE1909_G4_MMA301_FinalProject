@@ -1,106 +1,37 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import apiClient from './apiClient';
 
-// Khởi tạo Gemini AI client
-const getGeminiClient = () => {
-  const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-  if (!apiKey) {
-    console.warn('[aiApi] GEMINI_API_KEY not found in environment variables');
-    return null;
+// AI requests có thể mất nhiều thời gian hơn request thường (LLM inference)
+const AI_TIMEOUT = 60000;
+
+const getImageBase64 = async (imageUri) => {
+  if (imageUri.startsWith('data:image')) {
+    return imageUri.split(',')[1];
   }
-  return new GoogleGenerativeAI(apiKey);
+
+  if (imageUri.startsWith('file://') || imageUri.startsWith('content://')) {
+    const fs = require('expo-file-system');
+    return fs.readAsStringAsync(imageUri, {
+      encoding: fs.EncodingType.Base64,
+    });
+  }
+
+  throw new Error('Định dạng ảnh không được hỗ trợ. Vui lòng chọn ảnh từ thư viện hoặc chụp ảnh mới.');
 };
 
 /**
- * Phân tích ảnh sản phẩm bằng Gemini Vision API
- * @param {string} imageUri - URI của ảnh sản phẩm (base64 hoặc file URI)
- * @returns {Promise<Object>} - Kết quả phân tích: { condition, estimatedPrice, title, description }
+ * Phân tích ảnh sản phẩm qua backend (Gemini Vision)
+ * @param {string} imageUri - URI của ảnh sản phẩm (base64 data URI, file:// hoặc content://)
+ * @returns {Promise<Object>} - { condition, estimatedPrice, title, description }
  */
 export const analyzeProductImage = async (imageUri) => {
   try {
-    const genAI = getGeminiClient();
-    if (!genAI) {
-      throw new Error('Không tìm thấy API Key Gemini. Vui lòng cấu hình EXPO_PUBLIC_GEMINI_API_KEY.');
-    }
-
-    // Sử dụng model Gemini Pro Vision
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-
-    // Chuyển đổi URI ảnh sang base64 nếu cần
-    let imageData;
-    if (imageUri.startsWith('file://') || imageUri.startsWith('content://')) {
-      // Nếu là file URI, cần đọc và chuyển sang base64
-      const fs = require('expo-file-system');
-      const base64 = await fs.readAsStringAsync(imageUri, {
-        encoding: fs.EncodingType.Base64,
-      });
-      imageData = {
-        inlineData: {
-          data: base64,
-          mimeType: 'image/jpeg',
-        },
-      };
-    } else if (imageUri.startsWith('data:image')) {
-      // Nếu đã là base64 data URI
-      const base64Data = imageUri.split(',')[1];
-      imageData = {
-        inlineData: {
-          data: base64Data,
-          mimeType: 'image/jpeg',
-        },
-      };
-    } else {
-      throw new Error('Định dạng ảnh không được hỗ trợ. Vui lòng chọn ảnh từ thư viện hoặc chụp ảnh mới.');
-    }
-
-    // Prompt engineering để phân tích sản phẩm
-    const prompt = `Bạn là chuyên gia thẩm định đồ cũ cho sinh viên FPT University. Hãy phân tích ảnh sản phẩm này và trả về kết quả dưới dạng JSON với cấu trúc sau:
-
-{
-  "condition": số nguyên từ 0-100 (độ mới của sản phẩm),
-  "estimatedPrice": "giá đề xuất (định dạng VND, ví dụ: 95.000đ)",
-  "title": "tiêu đề bài đăng hấp dẫn, ngắn gọn (tối đa 80 ký tự)",
-  "description": "mô tả chi tiết sản phẩm với văn phong sinh viên, bao gồm: tình trạng, đặc điểm nổi bật, quà tặng kèm (nếu có), nơi giao dịch, giá cả"
-}
-
-Yêu cầu:
-- Phân tích kỹ lưỡng: độ mới, tình trạng bề mặt, mép giấy/gáy sách, vết xước, hư hại
-- Định giá hợp lý dựa trên tình trạng thực tế và giá thị trường đồ cũ
-- Viết mô tả thu hút với văn phong sinh viên FPT, thân thiện, thực tế
-- Ưu tiên các sản phẩm phổ biến: sách giáo trình, đồ điện tử, nội thất phòng trọ
-- Nếu không nhận diện được sản phẩm, hãy trả về condition: 0 và estimatedPrice: "Không xác định"`;
-
-    // Gọi Gemini API
-    const result = await model.generateContent([prompt, imageData]);
-    const response = await result.response;
-    const text = response.text();
-
-    // Parse JSON từ response
-    let parsedResult;
-    try {
-      // Lấy phần JSON từ response (có thể có thêm text quanh đó)
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsedResult = JSON.parse(jsonMatch[0]);
-      } else {
-        parsedResult = JSON.parse(text);
-      }
-    } catch (parseError) {
-      console.error('[aiApi] Error parsing Gemini response:', parseError);
-      throw new Error('Không thể phân tích kết quả từ AI. Vui lòng thử lại.');
-    }
-
-    // Validate kết quả
-    if (!parsedResult || typeof parsedResult !== 'object') {
-      throw new Error('Kết quả từ AI không hợp lệ.');
-    }
-
-    // Đảm bảo các trường bắt buộc tồn tại
-    return {
-      condition: parsedResult.condition || 50,
-      estimatedPrice: parsedResult.estimatedPrice || 'Không xác định',
-      title: parsedResult.title || 'Sản phẩm chưa đặt tên',
-      description: parsedResult.description || 'Chưa có mô tả',
-    };
+    const imageBase64 = await getImageBase64(imageUri);
+    const response = await apiClient.post(
+      '/ai/analyze',
+      { imageBase64, mimeType: 'image/jpeg' },
+      { timeout: AI_TIMEOUT }
+    );
+    return response.result;
   } catch (error) {
     console.error('[aiApi] Error analyzing product image:', error);
     throw error;
@@ -115,54 +46,12 @@ Yêu cầu:
  */
 export const regenerateDescription = async (currentResult, tone = 'casual') => {
   try {
-    const genAI = getGeminiClient();
-    if (!genAI) {
-      throw new Error('Không tìm thấy API Key Gemini.');
-    }
-
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-
-    const toneInstructions = {
-      casual: 'văn phong sinh viên, thân thiện, dùng từ ngữ trẻ trung',
-      formal: 'văn phong trang trọng, chuyên nghiệp, chi tiết',
-      urgent: 'văn phong gấp gáp, nhấn mạnh cần bán nhanh, kêu gọi hành động',
-    };
-
-    const prompt = `Dựa trên thông tin sản phẩm sau, hãy viết lại mô tả với ${toneInstructions[tone] || toneInstructions.casual}:
-
-Sản phẩm: ${currentResult.title}
-Giá: ${currentResult.estimatedPrice}
-Tình trạng: ${currentResult.condition}%
-Mô tả hiện tại: ${currentResult.description}
-
-Trả về kết quả dưới dạng JSON:
-{
-  "title": "tiêu đề mới hấp dẫn (tối đa 80 ký tự)",
-  "description": "mô tả mới với phong cách yêu cầu"
-}`;
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-
-    let parsedResult;
-    try {
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsedResult = JSON.parse(jsonMatch[0]);
-      } else {
-        parsedResult = JSON.parse(text);
-      }
-    } catch (parseError) {
-      console.error('[aiApi] Error parsing regeneration response:', parseError);
-      throw new Error('Không thể phân tích kết quả từ AI.');
-    }
-
-    return {
-      ...currentResult,
-      title: parsedResult.title || currentResult.title,
-      description: parsedResult.description || currentResult.description,
-    };
+    const response = await apiClient.post(
+      '/ai/regenerate',
+      { currentResult, tone },
+      { timeout: AI_TIMEOUT }
+    );
+    return response.result;
   } catch (error) {
     console.error('[aiApi] Error regenerating description:', error);
     throw error;
@@ -176,58 +65,34 @@ Trả về kết quả dưới dạng JSON:
  */
 export const generateDescription = async (productInfo) => {
   try {
-    const genAI = getGeminiClient();
-    if (!genAI) {
-      throw new Error('Không tìm thấy API Key Gemini.');
-    }
-
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-
-    const prompt = `Bạn là chuyên gia viết bài đăng bán đồ cũ cho sinh viên FPT University. Hãy viết một bài đăng hấp dẫn dựa trên thông tin sau:
-
-Tiêu đề hiện tại: ${productInfo.title || 'Chưa có tiêu đề'}
-Danh mục: ${productInfo.category || 'Chưa phân loại'}
-Tình trạng: ${productInfo.condition || 'Chưa xác định'}
-Giá bán: ${productInfo.price ? `${Number(productInfo.price).toLocaleString('vi-VN')}đ` : 'Chưa có giá'}
-Số lượng ảnh: ${productInfo.images?.length || 0} ảnh
-
-Yêu cầu:
-- Viết tiêu đề ngắn gọn, hấp dẫn (tối đa 80 ký tự)
-- Viết mô tả chi tiết với văn phong sinh viên FPT, thân thiện, thực tế
-- Bao gồm: tình trạng chi tiết, đặc điểm nổi bật, lý do bán, quà tặng kèm (nếu có), nơi giao dịch
-- Nhấn mạnh lợi ích cho người mua (giá rẻ, tiện lợi, kèm tài liệu...)
-- Sử dụng định dạng bullet points để dễ đọc
-- Kết thúc với lời kêu gọi hành động nhẹ nhàng
-
-Trả về kết quả dưới dạng JSON:
-{
-  "title": "tiêu đề hấp dẫn (tối đa 80 ký tự)",
-  "description": "mô tả chi tiết với văn phong sinh viên"
-}`;
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-
-    let parsedResult;
-    try {
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsedResult = JSON.parse(jsonMatch[0]);
-      } else {
-        parsedResult = JSON.parse(text);
-      }
-    } catch (parseError) {
-      console.error('[aiApi] Error parsing description response:', parseError);
-      throw new Error('Không thể phân tích kết quả từ AI.');
-    }
-
-    return {
-      title: parsedResult.title || productInfo.title || 'Sản phẩm chưa đặt tên',
-      description: parsedResult.description || 'Chưa có mô tả',
-    };
+    const response = await apiClient.post(
+      '/ai/describe',
+      { productInfo },
+      { timeout: AI_TIMEOUT }
+    );
+    return response.result;
   } catch (error) {
     console.error('[aiApi] Error generating description:', error);
+    throw error;
+  }
+};
+
+/**
+ * Chat với trợ lý AI Campus
+ * @param {string} message - Tin nhắn mới của người dùng
+ * @param {Array} history - Lịch sử chat (tối đa 20 lượt gần nhất)
+ * @returns {Promise<string>} - Câu trả lời của AI
+ */
+export const chatWithAssistant = async (message, history = []) => {
+  try {
+    const response = await apiClient.post(
+      '/ai/chat',
+      { message, history },
+      { timeout: AI_TIMEOUT }
+    );
+    return response.reply;
+  } catch (error) {
+    console.error('[aiApi] Error chatting with assistant:', error);
     throw error;
   }
 };
@@ -236,4 +101,5 @@ export default {
   analyzeProductImage,
   regenerateDescription,
   generateDescription,
+  chatWithAssistant,
 };

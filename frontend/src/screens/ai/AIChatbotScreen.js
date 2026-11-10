@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { chatWithAssistant } from '../../services/api/aiApi';
 
 const suggestions = [
   { icon: 'laptop-outline', label: 'Mẹo kiểm tra laptop cũ?' },
@@ -54,6 +55,8 @@ export default function AIChatbotScreen({ navigation }) {
   const { theme, isDarkMode, primaryColor, fontSizeScale } = useTheme();
   const [messages, setMessages] = useState(initialMessages);
   const [inputMessage, setInputMessage] = useState('');
+  const [isThinking, setIsThinking] = useState(false);
+  const [chatHistory, setChatHistory] = useState([]);
   const listRef = useRef(null);
 
   useEffect(() => {
@@ -63,9 +66,9 @@ export default function AIChatbotScreen({ navigation }) {
     return () => cancelAnimationFrame(frame);
   }, [messages]);
 
-  const sendMessage = (message = inputMessage) => {
+  const sendMessage = async (message = inputMessage) => {
     const trimmedMessage = message.trim();
-    if (!trimmedMessage) {
+    if (!trimmedMessage || isThinking) {
       return;
     }
 
@@ -75,15 +78,37 @@ export default function AIChatbotScreen({ navigation }) {
       text: trimmedMessage,
       time: 'Bây giờ',
     };
-    const assistantMessage = {
-      id: `bot-${Date.now() + 1}`,
-      sender: 'bot',
-      text: getReply(trimmedMessage),
-      time: 'Bây giờ',
-    };
 
-    setMessages((currentMessages) => [...currentMessages, userMessage, assistantMessage]);
+    setMessages((currentMessages) => [...currentMessages, userMessage]);
     setInputMessage('');
+    setIsThinking(true);
+
+    try {
+      const reply = await chatWithAssistant(trimmedMessage, chatHistory);
+      const assistantMessage = {
+        id: `bot-${Date.now()}`,
+        sender: 'bot',
+        text: reply,
+        time: 'Bây giờ',
+      };
+      setMessages((currentMessages) => [...currentMessages, assistantMessage]);
+      setChatHistory((currentHistory) => [
+        ...currentHistory.slice(-20),
+        { role: 'user', parts: [{ text: trimmedMessage }] },
+        { role: 'model', parts: [{ text: reply }] },
+      ]);
+    } catch (error) {
+      console.error('[AIChatbotScreen] Error getting AI reply:', error);
+      const assistantMessage = {
+        id: `bot-${Date.now()}`,
+        sender: 'bot',
+        text: `Mình đang gặp lỗi kết nối Gemini. ${getReply(trimmedMessage)}`,
+        time: 'Bây giờ',
+      };
+      setMessages((currentMessages) => [...currentMessages, assistantMessage]);
+    } finally {
+      setIsThinking(false);
+    }
   };
 
   const renderMessage = ({ item }) => {
@@ -182,11 +207,25 @@ export default function AIChatbotScreen({ navigation }) {
             </View>
           }
           ListFooterComponent={
-            <View style={styles.compliance}>
-              <Ionicons name="shield-checkmark-outline" size={14} color={theme.textSecondary} />
-              <Text style={[styles.complianceText, { color: theme.textSecondary }]}>
-                AI phản hồi dựa trên kinh nghiệm thực tế và quy tắc giao dịch an toàn.
-              </Text>
+            <View>
+              {isThinking && (
+                <View style={[styles.messageRow, { marginBottom: 14 }]}>
+                  <View style={[styles.messageAvatar, { backgroundColor: primaryColor }]}>
+                    <Ionicons name="sparkles" size={15} color="#ffffff" />
+                  </View>
+                  <View style={[styles.messageBubble, { backgroundColor: theme.card, borderColor: theme.border, flexDirection: 'row', gap: 4, alignItems: 'center', paddingVertical: 14 }]}>
+                    <View style={[styles.typingDot, { backgroundColor: theme.textSecondary }]} />
+                    <View style={[styles.typingDot, { backgroundColor: theme.textSecondary }]} />
+                    <View style={[styles.typingDot, { backgroundColor: theme.textSecondary }]} />
+                  </View>
+                </View>
+              )}
+              <View style={styles.compliance}>
+                <Ionicons name="shield-checkmark-outline" size={14} color={theme.textSecondary} />
+                <Text style={[styles.complianceText, { color: theme.textSecondary }]}>
+                  AI phản hồi dựa trên kinh nghiệm thực tế và quy tắc giao dịch an toàn.
+                </Text>
+              </View>
             </View>
           }
         />
@@ -276,6 +315,7 @@ const styles = StyleSheet.create({
   messageBubble: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 13, paddingVertical: 10 },
   messageText: { lineHeight: 20 },
   compliance: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 5, paddingTop: 4 },
+  typingDot: { width: 6, height: 6, borderRadius: 3 },
   complianceText: { fontSize: 10, textAlign: 'center', flexShrink: 1 },
   composerArea: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 8, paddingBottom: 8 },
   suggestionList: { paddingHorizontal: 12, gap: 8, paddingBottom: 8 },
