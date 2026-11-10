@@ -40,9 +40,11 @@ export default function ProductInfoForm({
       setIsGenerating(false);
     }
   };
-  const field = (label, key, placeholder, options) => (
+  const field = (label, key, placeholder, options, required = true) => (
     <View style={styles.field}>
-      <Text style={[styles.label, { color: theme.text }]}>{label} *</Text>
+      <Text style={[styles.label, { color: theme.text }]}>
+        {label} {required ? '*' : <Text style={{ color: theme.textSecondary, fontWeight: 'normal', fontSize: 11 }}>(tùy chọn)</Text>}
+      </Text>
       {options ? (
         <View style={styles.options}>
           {options.map((option) => {
@@ -74,7 +76,7 @@ export default function ProductInfoForm({
           ]}
           keyboardType={key === 'price' ? 'number-pad' : 'default'}
           multiline={key === 'description'}
-          maxLength={key === 'title' ? 100 : key === 'description' ? 1000 : undefined}
+          maxLength={key === 'title' ? 100 : key === 'description' ? 1000 : 255}
           accessibilityLabel={label}
         />
       )}
@@ -126,6 +128,12 @@ export default function ProductInfoForm({
           {isGenerating ? 'Đang viết mô tả...' : 'Viết mô tả bằng AI'}
         </Text>
       </TouchableOpacity>
+
+      <View style={[styles.divider, { backgroundColor: theme.border }]} />
+      <Text style={[styles.subheading, { color: theme.textSecondary }]}>Thông tin bổ sung</Text>
+      {field('Quà tặng / Ưu đãi kèm theo', 'gift', 'Ví dụ: Tặng kèm tài liệu môn học, phụ kiện...', null, false)}
+      {field('Lý do nhượng lại', 'reason', 'Ví dụ: Đã hoàn thành môn học, dư dùng pass lại...', null, false)}
+      {field('Thời gian rảnh nhận đồ', 'pickupSchedule', 'Ví dụ: Hẹn gặp tại sảnh KTX sau giờ học...', null, false)}
     </View>
   );
 }
@@ -133,6 +141,8 @@ export default function ProductInfoForm({
 const styles = StyleSheet.create({
   card: { borderRadius: 14, padding: 14, marginBottom: 16, gap: 13 },
   heading: { fontWeight: '700', fontSize: 16 },
+  subheading: { fontSize: 13, fontWeight: '600', marginTop: 4 },
+  divider: { height: 1, marginVertical: 4 },
   field: { gap: 6 },
   label: { fontWeight: '600', fontSize: 13 },
   input: { minHeight: 46, borderRadius: 9, paddingHorizontal: 12, borderWidth: 1, fontSize: 14 },

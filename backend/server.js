@@ -11,7 +11,7 @@ connectDB();
 
 // Global Middlewares
 app.use(cors({
-  origin: ['http://localhost:19006', 'http://localhost:8081', 'http://172.20.10.2:19006', 'http://172.20.10.2:8081', 'exp://172.20.10.2:19000', 'exp://172.20.10.2:19001'],
+  origin: true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
