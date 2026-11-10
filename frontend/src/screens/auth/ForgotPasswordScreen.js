@@ -4,13 +4,13 @@ import {
     KeyboardAvoidingView,
     Platform,
     ScrollView,
-    SafeAreaView,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { validateFPTEduEmail } from '../../utils/validation';
 import apiClient from '../../services/api/apiClient';

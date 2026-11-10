@@ -18,7 +18,7 @@ app.use(cors({
 }));
 
 app.use((req, res, next) => {
-  const limit = req.path.startsWith('/api/uploads/') ? '12mb' : '100kb';
+  const limit = (req.path.startsWith('/api/uploads/') || req.path === '/api/ai/analyze') ? '12mb' : '100kb';
   express.json({ limit })(req, res, next);
 });
 
@@ -37,6 +37,7 @@ app.use('/api/profile', require('./src/routes/profileRoutes'));
 app.use('/api/uploads', require('./src/routes/uploadRoutes'));
 app.use('/api/admin/listings', require('./src/routes/adminListingRoutes'));
 app.use('/api/notifications', require('./src/routes/notificationRoutes'));
+app.use('/api/ai', require('./src/routes/aiRoutes'));
 
 // Error Handling Middleware (must be after all routes)
 app.use(notFound);
