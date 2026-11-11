@@ -1,3 +1,4 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
@@ -263,7 +264,7 @@ export default function SettingsScreen({ navigation }) {
         </SettingsSection>
 
         <SettingsSection title="Thông báo & Cảnh báo" icon="notifications-outline" color={primaryColor} theme={theme}>
-          <SettingsRow icon="notifications-active-outline" iconColor={primaryColor} title="Đơn hàng & Điểm hẹn" description="Nhận tin khi có người đặt mua hoặc tới KTX" theme={theme} trailing={renderSwitch(notifications.orders, (value) => updateNotification('orders', value))} />
+          <SettingsRow icon="notifications-outline" iconColor={primaryColor} title="Đơn hàng & Điểm hẹn" description="Nhận tin khi có người đặt mua hoặc tới KTX" theme={theme} trailing={renderSwitch(notifications.orders, (value) => updateNotification('orders', value))} />
           <Divider theme={theme} />
           <SettingsRow icon="megaphone-outline" iconColor="#0031e8" title="Khuyến mãi & Tin Campus" description="Bản tin pass đồ xịn, hội chợ đồ cũ cuối kỳ" theme={theme} trailing={renderSwitch(notifications.campus, (value) => updateNotification('campus', value))} />
           <Divider theme={theme} />

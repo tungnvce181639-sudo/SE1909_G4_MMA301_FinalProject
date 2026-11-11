@@ -29,7 +29,7 @@ const defaultProfile = {
 export function ProfileProvider({ children, initialProfile = defaultProfile }) {
   const auth = useAuth();
   const user = auth?.user;
-  const userId = user?.uid || user?.firebaseUid;
+  const userId = user?.uid || user?.firebaseUid || user?._id || user?.id;
   const [profile, setProfile] = useState(initialProfile);
   const [loading, setLoading] = useState(Boolean(user));
 
@@ -45,32 +45,53 @@ export function ProfileProvider({ children, initialProfile = defaultProfile }) {
 
       setLoading(true);
       try {
-        if (!userId) {
-          const fullName = user.fullName || user.displayName || initialProfile.fullName;
-          setProfile({
-            ...initialProfile,
-            ...user,
-            fullName,
-            name: user.name || fullName,
-            role: user.role || null,
-          });
-          setLoading(false);
-          return;
+        let profileData = {};
+
+        // 1. Try to fetch profile from Backend API
+        try {
+          const apiData = await profileApi.getProfile();
+          if (apiData) {
+            profileData = { ...profileData, ...apiData };
+          }
+        } catch (apiError) {
+          // Fallback if backend profile API is unavailable or offline
         }
-        const snapshot = await getDoc(doc(db, USERS_COLLECTION, userId));
-        const data = snapshot.exists() ? snapshot.data() : {};
-        const fullName = data.fullName || user.displayName || initialProfile.fullName;
-        const avatarUrl = data.avatarUrl || null;
+
+        // 2. Fetch from Firestore if user has a valid UID
+        if (userId) {
+          try {
+            const snapshot = await getDoc(doc(db, USERS_COLLECTION, String(userId)));
+            if (snapshot.exists()) {
+              profileData = { ...profileData, ...snapshot.data() };
+            }
+          } catch (fsError) {
+            // Firestore load failed or skipped
+          }
+        }
+
+        const fullName =
+          profileData.fullName ||
+          profileData.name ||
+          user.fullName ||
+          user.displayName ||
+          initialProfile.fullName;
+        const avatarUrl =
+          profileData.avatarUrl ||
+          profileData.avatar ||
+          user.avatarUrl ||
+          user.avatar ||
+          null;
 
         if (isActive) {
           setProfile({
             ...initialProfile,
-            ...data,
+            ...user,
+            ...profileData,
             fullName,
-            name: data.name || fullName,
+            name: fullName,
             avatarUrl,
-            avatar: data.avatar || avatarUrl,
-            role: data.role || user.role || null,
+            avatar: avatarUrl,
+            role: profileData.role || user.role || null,
           });
         }
       } catch (error) {
@@ -116,7 +137,7 @@ export function ProfileProvider({ children, initialProfile = defaultProfile }) {
       };
 
       // Remove undefined values
-      Object.keys(apiUpdates).forEach(key => {
+      Object.keys(apiUpdates).forEach((key) => {
         if (apiUpdates[key] === undefined) {
           delete apiUpdates[key];
         }
@@ -127,21 +148,31 @@ export function ProfileProvider({ children, initialProfile = defaultProfile }) {
         await profileApi.updateProfile(apiUpdates);
       }
 
-      // Also update Firestore as fallback/sync
-      await setDoc(doc(db, USERS_COLLECTION, userId), normalizedUpdates, { merge: true });
+      // Also update Firestore as fallback/sync if userId exists
+      if (userId) {
+        try {
+          await setDoc(doc(db, USERS_COLLECTION, String(userId)), normalizedUpdates, { merge: true });
+        } catch (fsErr) {
+          console.warn('[ProfileContext] Firestore sync warning:', fsErr?.message);
+        }
+      }
+
       setProfile((currentProfile) => ({ ...currentProfile, ...normalizedUpdates }));
       return normalizedUpdates;
     } catch (error) {
       console.error('[ProfileContext] Updating profile failed:', error);
-      // If API fails, still try to update Firestore
-      try {
-        await setDoc(doc(db, USERS_COLLECTION, userId), normalizedUpdates, { merge: true });
-        setProfile((currentProfile) => ({ ...currentProfile, ...normalizedUpdates }));
-        return normalizedUpdates;
-      } catch (firestoreError) {
-        console.error('[ProfileContext] Firestore update also failed:', firestoreError);
-        throw error;
+      // If API fails, still try to update Firestore if userId exists
+      if (userId) {
+        try {
+          await setDoc(doc(db, USERS_COLLECTION, String(userId)), normalizedUpdates, { merge: true });
+          setProfile((currentProfile) => ({ ...currentProfile, ...normalizedUpdates }));
+          return normalizedUpdates;
+        } catch (firestoreError) {
+          console.error('[ProfileContext] Firestore update also failed:', firestoreError);
+          throw error;
+        }
       }
+      throw error;
     }
   }, [userId]);
 
