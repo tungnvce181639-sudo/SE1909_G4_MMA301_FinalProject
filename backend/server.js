@@ -11,12 +11,16 @@ connectDB();
 
 // Global Middlewares
 app.use(cors({
-  origin: ['http://localhost:19006', 'http://localhost:8081', 'http://172.20.10.2:19006', 'http://172.20.10.2:8081', 'exp://172.20.10.2:19000', 'exp://172.20.10.2:19001'],
+  origin: true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(express.json());
+
+app.use((req, res, next) => {
+  const limit = (req.path.startsWith('/api/uploads/') || req.path === '/api/ai/analyze') ? '12mb' : '100kb';
+  express.json({ limit })(req, res, next);
+});
 
 // Basic test route
 app.get('/', (req, res) => {
@@ -28,6 +32,12 @@ app.use('/api/auth', require('./src/routes/authRoutes'));
 
 // Profile Routes
 app.use('/api/profile', require('./src/routes/profileRoutes'));
+
+// Upload & Admin Routes
+app.use('/api/uploads', require('./src/routes/uploadRoutes'));
+app.use('/api/admin/listings', require('./src/routes/adminListingRoutes'));
+app.use('/api/notifications', require('./src/routes/notificationRoutes'));
+app.use('/api/ai', require('./src/routes/aiRoutes'));
 
 // Error Handling Middleware (must be after all routes)
 app.use(notFound);

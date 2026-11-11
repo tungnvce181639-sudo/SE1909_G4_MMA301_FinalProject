@@ -45,6 +45,15 @@ const userSchema = new mongoose.Schema(
             trim: true,
             default: null,
         },
+        expoPushToken: {
+            type: String,
+            default: null,
+            select: false,
+        },
+        notificationSound: {
+            type: Boolean,
+            default: false,
+        },
 
         // ==========================================
         // 3. Wallet & Role Management
@@ -98,6 +107,7 @@ userSchema.methods.toJSON = function () {
     delete userObject.password;
     delete userObject.resetOtp;
     delete userObject.otpExpiresAt;
+    delete userObject.expoPushToken;
     delete userObject.__v;
 
     return userObject;

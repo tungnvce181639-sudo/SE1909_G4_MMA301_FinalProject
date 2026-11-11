@@ -7,7 +7,7 @@ const fs = require('fs');
  * Priority:
  * 1. FIREBASE_SERVICE_ACCOUNT environment variable (JSON string)
  * 2. Local serviceAccountKey.json file in config directory
- * 3. Default credentials fallback
+ * 3. Project ID fallback for local Firebase ID-token verification
  */
 let serviceAccount;
 
@@ -24,13 +24,11 @@ try {
   }
 
   if (!admin.apps.length) {
-    if (serviceAccount) {
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-      });
-    } else {
-      admin.initializeApp();
-    }
+    const projectId = process.env.FIREBASE_PROJECT_ID || serviceAccount?.project_id || 'smartcampus-market';
+    admin.initializeApp({
+      projectId,
+      ...(serviceAccount ? { credential: admin.credential.cert(serviceAccount) } : {}),
+    });
   }
 } catch (error) {
   console.error('Failed to initialize Firebase Admin SDK:', error.message);
