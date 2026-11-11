@@ -18,7 +18,7 @@ app.use(cors({
 }));
 
 app.use((req, res, next) => {
-  const limit = (req.path.startsWith('/api/uploads/') || req.path === '/api/ai/analyze') ? '12mb' : '100kb';
+  const limit = (req.path.startsWith('/api/uploads/') || req.path === '/api/ai/analyze' || req.path === '/api/ai/chat') ? '12mb' : '100kb';
   express.json({ limit })(req, res, next);
 });
 

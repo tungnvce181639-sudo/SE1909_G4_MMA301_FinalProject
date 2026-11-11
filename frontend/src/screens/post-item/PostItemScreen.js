@@ -32,6 +32,8 @@ export default function PostItemScreen({ navigation, route }) {
   const form = usePostItemForm({
     navigation,
     listingId: route?.params?.listingId,
+    aiData: route?.params?.aiData,
+    aiImageUri: route?.params?.aiImageUri,
     user: auth?.user,
     profile,
   });

@@ -1,4 +1,5 @@
 import React from 'react';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -26,6 +27,25 @@ import AdminApprovalsScreen from '../screens/admin/AdminApprovalsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+
+const styles = StyleSheet.create({
+  tabContainer: { flex: 1 },
+  aiChatFab: {
+    position: 'absolute',
+    right: 18,
+    bottom: 88,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+  },
+});
 
 const tabScreens = {
   Home: {
@@ -66,7 +86,7 @@ const tabScreens = {
   },
 };
 
-function TabNavigator() {
+function TabNavigator({ navigation }) {
   const { theme, primaryColor } = useTheme();
   const { profile, loading: profileLoading } = useProfile();
   const { user } = useAuth();
@@ -76,6 +96,7 @@ function TabNavigator() {
   );
 
   return (
+    <View style={styles.tabContainer}>
     <Tab.Navigator
       screenOptions={({ route }) => {
         const tab = visibleTabScreens[route.name];
@@ -105,6 +126,15 @@ function TabNavigator() {
         <Tab.Screen key={name} name={name} component={tab.component} options={{ title: tab.label }} />
       ))}
     </Tab.Navigator>
+    <TouchableOpacity
+      style={[styles.aiChatFab, { backgroundColor: primaryColor }]}
+      onPress={() => navigation.navigate('AIChatbot')}
+      activeOpacity={0.85}
+      accessibilityLabel="Mở trợ lý AI"
+    >
+      <Ionicons name="chatbubble-ellipses" size={24} color="#ffffff" />
+    </TouchableOpacity>
+    </View>
   );
 }
 

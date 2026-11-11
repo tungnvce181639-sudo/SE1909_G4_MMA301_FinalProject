@@ -83,13 +83,14 @@ export const generateDescription = async (productInfo) => {
  * @param {Array} history - Lịch sử chat (tối đa 20 lượt gần nhất)
  * @returns {Promise<string>} - Câu trả lời của AI
  */
-export const chatWithAssistant = async (message, history = []) => {
+export const chatWithAssistant = async (message, history = [], imageUri = null) => {
   try {
-    const response = await apiClient.post(
-      '/ai/chat',
-      { message, history },
-      { timeout: AI_TIMEOUT }
-    );
+    const payload = { message, history };
+    if (imageUri) {
+      payload.imageBase64 = await getImageBase64(imageUri);
+      payload.mimeType = 'image/jpeg';
+    }
+    const response = await apiClient.post('/ai/chat', payload, { timeout: AI_TIMEOUT });
     return response.reply;
   } catch (error) {
     console.error('[aiApi] Error chatting with assistant:', error);
