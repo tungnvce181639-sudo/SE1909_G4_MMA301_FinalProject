@@ -8,32 +8,12 @@ class EmailService {
   constructor() {
     // Initialize transporter
     // For development, you can use a test account or configure your SMTP
-    this.transporter = nodemailer.createTransport({
-      // Example for Gmail (use App Password, not regular password)
-      // host: 'smtp.gmail.com',
-      // port: 587,
-      // secure: false,
-      // auth: {
-      //   user: process.env.EMAIL_USER,
-      //   pass: process.env.EMAIL_PASSWORD,
-      // },
+    this.transporter = null;
 
-      // For development using Ethereal Email (test account)
-      // Uncomment to use test account
-      // service: 'ethereal',
-
-      // For production, configure your SMTP provider
-      // Example for SendGrid
-      // host: 'smtp.sendgrid.net',
-      // port: 587,
-      // auth: {
-      //   user: 'apikey',
-      //   pass: process.env.SENDGRID_API_KEY,
-      // },
-
-      // Using EmailJS as alternative (if you want to keep EmailJS integration)
-      // You can call EmailJS API from backend if needed
-    });
+    // EmailJS credentials
+    this.serviceId = process.env.EMAILJS_SERVICE_ID || 'service_zdz7i66';
+    this.templateId = process.env.EMAILJS_TEMPLATE_ID || 'template_svmcnzn';
+    this.userId = process.env.EMAILJS_USER_ID || '9ZH5YHDvmUrekjwkP';
   }
 
   /**
@@ -43,12 +23,13 @@ class EmailService {
    * @returns {Promise<void>}
    */
   async sendPasswordResetOtp(email, otp) {
+    console.log(`[EmailService] 🔑 Password reset OTP for ${email}: ${otp}`);
     try {
       // Using EmailJS API from backend
       const emailData = {
-        service_id: 'service_fgcne1k',
-        template_id: 'template_svmcnzn',
-        user_id: '9ZH5YHDvmUrekjwkP',
+        service_id: this.serviceId,
+        template_id: this.templateId,
+        user_id: this.userId,
         template_params: {
           email: email,
           passcode: otp,
@@ -82,12 +63,13 @@ class EmailService {
    * @returns {Promise<void>}
    */
   async sendRegisterOtp(email, otp) {
+    console.log(`[EmailService] 🔑 Registration OTP for ${email}: ${otp}`);
     try {
       // Using EmailJS API from backend
       const emailData = {
-        service_id: 'service_fgcne1k',
-        template_id: 'template_svmcnzn', // Use same template or create separate one
-        user_id: '9ZH5YHDvmUrekjwkP',
+        service_id: this.serviceId,
+        template_id: this.templateId, // Use same template or create separate one
+        user_id: this.userId,
         template_params: {
           email: email,
           passcode: otp,
@@ -124,9 +106,9 @@ class EmailService {
     try {
       // Using EmailJS API from backend
       const emailData = {
-        service_id: 'service_fgcne1k',
-        template_id: 'template_svmcnzn', // Use welcome template
-        user_id: '9ZH5YHDvmUrekjwkP',
+        service_id: this.serviceId,
+        template_id: this.templateId, // Use welcome template
+        user_id: this.userId,
         template_params: {
           email: email,
           name: fullName,

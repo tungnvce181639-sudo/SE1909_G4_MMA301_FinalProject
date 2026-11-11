@@ -139,7 +139,7 @@ export default function RegisterScreen({ navigation }) {
 
         // Send OTP via EmailJS
         const emailData = {
-          service_id: 'service_fgcne1k',
+          service_id: 'service_zdz7i66',
           template_id: 'template_svmcnzn',
           user_id: '9ZH5YHDvmUrekjwkP',
           template_params: {
