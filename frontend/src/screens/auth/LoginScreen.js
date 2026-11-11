@@ -17,6 +17,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { loginWithEmail } from '../../services/authService';
 import { validateFPTEduEmail, validateRequired } from '../../utils/validation';
+import { diagnoseBackendConnection } from '../../utils/networkDiagnostic';
 
 const getScaledFontSize = (size, scale) =>
   size * (typeof scale === 'number' ? scale : 1);
@@ -80,7 +81,20 @@ export default function LoginScreen({ navigation }) {
       showNotice('Đăng nhập thành công!', true);
     } catch (error) {
       console.error('[LoginScreen] handleLogin error:', error);
-      Alert.alert('Lỗi đăng nhập', error.message || 'Không thể đăng nhập. Vui lòng thử lại.');
+      const isNetworkError =
+        error.message?.includes('Network Error') ||
+        error.message?.includes('network') ||
+        error.code === 'ERR_NETWORK';
+
+      if (isNetworkError) {
+        const diag = await diagnoseBackendConnection();
+        Alert.alert(
+          'Lỗi kết nối mạng (Network Error)',
+          `Không thể kết nối đến máy chủ tại:\n${diag.targetApiUrl}\n\nChi tiết: ${diag.diagnosis}\n\n👉 Cách khắc phục:\n${diag.solution}`
+        );
+      } else {
+        Alert.alert('Lỗi đăng nhập', error.message || 'Không thể đăng nhập. Vui lòng thử lại.');
+      }
     } finally {
       setIsLoading(false);
     }

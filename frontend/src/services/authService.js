@@ -123,27 +123,40 @@ export const loginWithEmail = async (email, password) => {
       throw new Error('Vui lòng nhập đầy đủ email và mật khẩu.');
     }
 
-    // Call backend API for local authentication
-    const response = await apiClient.post('/auth/login', {
-      email: trimmedEmail,
-      password,
-    });
+    // 1. Try Firebase Authentication first
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, trimmedEmail, password);
+      const firebaseUser = userCredential.user;
 
-    // Response structure from backend: { success: true, token, user }
-    const backendToken = response?.token;
-    const userData = response?.user;
+      // Exchange the Firebase ID token for a backend session JWT & MongoDB user
+      return await createBackendSessionForFirebaseUser(firebaseUser);
+    } catch (firebaseError) {
+      console.warn('[authService] Firebase Auth login failed, checking backend fallback:', firebaseError?.code || firebaseError?.message);
 
-    if (!backendToken || !userData) {
-      throw new Error('Không thể lấy thông tin đăng nhập từ máy chủ.');
+      // If Firebase fails, try local backend authentication fallback (e.g. accounts created directly in MongoDB)
+      try {
+        const response = await apiClient.post('/auth/login', {
+          email: trimmedEmail,
+          password,
+        });
+
+        const backendToken = response?.token;
+        const userData = response?.user;
+
+        if (backendToken && userData) {
+          await persistSession(backendToken, userData);
+          return {
+            user: userData,
+            token: backendToken,
+          };
+        }
+      } catch (backendError) {
+        // If both failed, prioritize Firebase error code for accurate message
+        throw firebaseError;
+      }
+
+      throw firebaseError;
     }
-
-    // Persist backend token and user data in AsyncStorage
-    await persistSession(backendToken, userData);
-
-    return {
-      user: userData,
-      token: backendToken,
-    };
   } catch (error) {
     const formattedError = new Error(formatAuthErrorMessage(error));
     formattedError.code = error.code;
