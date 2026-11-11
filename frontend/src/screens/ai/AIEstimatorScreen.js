@@ -38,7 +38,7 @@ export default function AIEstimatorScreen({ navigation }) {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       quality: 0.8,
     });
@@ -276,7 +276,7 @@ export default function AIEstimatorScreen({ navigation }) {
           <TouchableOpacity
             style={[styles.applyButton, { backgroundColor: primaryColor, opacity: loading ? 0.6 : 1 }]}
             disabled={loading}
-            onPress={() => navigation.navigate('PostItem', { aiData: aiResult })}
+            onPress={() => navigation.navigate('MainTabs', { screen: 'PostItem', params: { aiData: aiResult, aiImageUri: imageUri } })}
           >
             <Text style={styles.applyText}>SỬ DỤNG DỮ LIỆU ĐỂ ĐĂNG BÀI NGAY</Text>
             <Ionicons name="arrow-forward" size={20} color="#ffffff" />

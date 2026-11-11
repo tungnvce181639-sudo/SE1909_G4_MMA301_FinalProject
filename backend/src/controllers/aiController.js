@@ -3,9 +3,11 @@ const geminiAIService = require('../services/geminiAIService');
 
 class AIController {
   chat = asyncHandler(async (req, res) => {
-    const { message, history } = req.body;
-    if (typeof message !== 'string' || !message.trim()) {
-      const error = new Error('Message is required.');
+    const { message, history, imageBase64, mimeType } = req.body;
+    const hasMessage = typeof message === 'string' && message.trim();
+    const hasImage = typeof imageBase64 === 'string' && imageBase64;
+    if (!hasMessage && !hasImage) {
+      const error = new Error('Message or image is required.');
       error.statusCode = 400;
       throw error;
     }
@@ -15,7 +17,11 @@ class AIController {
       throw error;
     }
 
-    const reply = await geminiAIService.chatWithAssistant(message.trim(), history || []);
+    const reply = await geminiAIService.chatWithAssistant(
+      hasMessage ? message.trim() : '',
+      history || [],
+      { imageBase64: hasImage ? imageBase64 : undefined, mimeType }
+    );
     res.status(200).json({ success: true, reply });
   });
 

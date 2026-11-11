@@ -22,8 +22,22 @@ const INITIAL_VALUES = {
   negotiable: true,
 };
 
+const mapAiCondition = (score) => {
+  const n = Number(score);
+  if (!Number.isFinite(n)) return '';
+  if (n >= 98) return 'new100';
+  if (n >= 90) return 'new95';
+  if (n >= 70) return 'good';
+  return 'fair';
+};
+
+const parseAiPrice = (value) => {
+  const digits = String(value || '').replace(/[^0-9]/g, '');
+  return digits && Number(digits) > 0 ? digits : '';
+};
+
 // Owns listing form state, device permissions, validation and Firestore submit flow.
-export default function usePostItemForm({ navigation, listingId, user, profile }) {
+export default function usePostItemForm({ navigation, listingId, aiData, aiImageUri, user, profile }) {
   const userId = user?.uid || user?.firebaseUid;
   const [values, setValues] = useState(INITIAL_VALUES);
   const [errors, setErrors] = useState({});
@@ -84,6 +98,37 @@ export default function usePostItemForm({ navigation, listingId, user, profile }
 
     return () => { active = false; };
   }, [listingId, navigation, userId]);
+
+  // Prefill form from AI Estimator result (title, price, condition, description, image)
+  useEffect(() => {
+    if (listingId || !aiData) return;
+
+    setValues((current) => ({
+      ...current,
+      title: aiData.title || current.title,
+      description: aiData.description || current.description,
+      price: parseAiPrice(aiData.estimatedPrice) || current.price,
+      condition: mapAiCondition(aiData.condition) || current.condition,
+    }));
+
+    if (aiImageUri) {
+      (async () => {
+        try {
+          const fs = require('expo-file-system');
+          const base64 = await fs.readAsStringAsync(aiImageUri, { encoding: fs.EncodingType.Base64 });
+          setValues((current) => ({
+            ...current,
+            images: current.images.length ? current.images : [`data:image/jpeg;base64,${base64}`],
+          }));
+        } catch (imageError) {
+          console.warn('[PostItemScreen] Failed to load AI image:', imageError);
+        }
+      })();
+    }
+
+    // Clear params so re-opening the tab doesn't re-apply stale AI data
+    navigation.setParams({ aiData: undefined, aiImageUri: undefined });
+  }, [aiData, aiImageUri, listingId, navigation]);
 
   const change = useCallback((key, value) => {
     setValues((current) => ({ ...current, [key]: value }));

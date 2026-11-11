@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -10,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { chatWithAssistant } from '../../services/api/aiApi';
@@ -57,6 +60,7 @@ export default function AIChatbotScreen({ navigation }) {
   const [inputMessage, setInputMessage] = useState('');
   const [isThinking, setIsThinking] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
+  const [attachedImage, setAttachedImage] = useState(null);
   const listRef = useRef(null);
 
   useEffect(() => {
@@ -66,16 +70,68 @@ export default function AIChatbotScreen({ navigation }) {
     return () => cancelAnimationFrame(frame);
   }, [messages]);
 
-  const sendMessage = async (message = inputMessage) => {
-    const trimmedMessage = message.trim();
-    if (!trimmedMessage || isThinking) {
+  const pickFromLibrary = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Cần cấp quyền', 'Vui lòng cho phép truy cập thư viện ảnh để gửi ảnh cho AI.');
       return;
     }
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets?.[0]?.uri) {
+        setAttachedImage(result.assets[0].uri);
+      }
+    } catch (pickerError) {
+      console.error('[AIChatbotScreen] Image picker error:', pickerError);
+      Alert.alert('Không mở được thư viện ảnh', 'Vui lòng thử lại hoặc chọn ảnh bằng cách khác.');
+    }
+  };
+
+  const takePhoto = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Cần cấp quyền', 'Vui lòng cho phép truy cập camera để chụp ảnh gửi cho AI.');
+      return;
+    }
+    try {
+      const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
+      if (!result.canceled && result.assets?.[0]?.uri) {
+        setAttachedImage(result.assets[0].uri);
+      }
+    } catch (cameraError) {
+      console.error('[AIChatbotScreen] Camera error:', cameraError);
+      Alert.alert(
+        'Không mở được camera',
+        'Thiết bị không có ứng dụng camera khả dụng. Bạn có thể chọn ảnh từ thư viện thay thế.'
+      );
+    }
+  };
+
+  const pickAttachment = () => {
+    Alert.alert('Đính kèm ảnh', 'Chọn nguồn ảnh', [
+      { text: 'Chụp ảnh', onPress: takePhoto },
+      { text: 'Thư viện ảnh', onPress: pickFromLibrary },
+      { text: 'Hủy', style: 'cancel' },
+    ]);
+  };
+
+  const sendMessage = async (message = inputMessage) => {
+    const trimmedMessage = message.trim();
+    if ((!trimmedMessage && !attachedImage) || isThinking) {
+      return;
+    }
+
+    const imageToSend = attachedImage;
+    setAttachedImage(null);
 
     const userMessage = {
       id: `user-${Date.now()}`,
       sender: 'user',
       text: trimmedMessage,
+      imageUri: imageToSend,
       time: 'Bây giờ',
     };
 
@@ -84,7 +140,7 @@ export default function AIChatbotScreen({ navigation }) {
     setIsThinking(true);
 
     try {
-      const reply = await chatWithAssistant(trimmedMessage, chatHistory);
+      const reply = await chatWithAssistant(trimmedMessage, chatHistory, imageToSend);
       const assistantMessage = {
         id: `bot-${Date.now()}`,
         sender: 'bot',
@@ -94,7 +150,7 @@ export default function AIChatbotScreen({ navigation }) {
       setMessages((currentMessages) => [...currentMessages, assistantMessage]);
       setChatHistory((currentHistory) => [
         ...currentHistory.slice(-20),
-        { role: 'user', parts: [{ text: trimmedMessage }] },
+        { role: 'user', parts: [{ text: trimmedMessage || '(người dùng gửi ảnh)' }] },
         { role: 'model', parts: [{ text: reply }] },
       ]);
     } catch (error) {
@@ -137,14 +193,19 @@ export default function AIChatbotScreen({ navigation }) {
               },
             ]}
           >
-            <Text
-              style={[
-                styles.messageText,
-                { color: isUserMessage ? '#ffffff' : theme.text, fontSize: 14 * fontSizeScale },
-              ]}
-            >
-              {item.text}
-            </Text>
+              {item.imageUri && (
+                <Image source={{ uri: item.imageUri }} style={styles.messageImage} resizeMode="cover" />
+              )}
+              {!!item.text && (
+                <Text
+                  style={[
+                    styles.messageText,
+                    { color: isUserMessage ? '#ffffff' : theme.text, fontSize: 14 * fontSizeScale },
+                  ]}
+                >
+                  {item.text}
+                </Text>
+              )}
           </View>
         </View>
       </View>
@@ -247,8 +308,24 @@ export default function AIChatbotScreen({ navigation }) {
               </TouchableOpacity>
             )}
           />
+          {attachedImage && (
+            <View style={styles.previewRow}>
+              <Image source={{ uri: attachedImage }} style={styles.previewImage} resizeMode="cover" />
+              <TouchableOpacity
+                style={styles.previewRemove}
+                onPress={() => setAttachedImage(null)}
+                accessibilityLabel="Xóa ảnh đính kèm"
+              >
+                <Ionicons name="close-circle" size={20} color={theme.textSecondary} />
+              </TouchableOpacity>
+            </View>
+          )}
           <View style={styles.composerRow}>
-            <TouchableOpacity style={styles.attachButton} accessibilityLabel="Đính kèm tệp hoặc ảnh">
+            <TouchableOpacity
+              style={styles.attachButton}
+              onPress={pickAttachment}
+              accessibilityLabel="Đính kèm ảnh"
+            >
               <Ionicons name="attach-outline" size={22} color={theme.textSecondary} />
             </TouchableOpacity>
             <View style={[styles.inputWrapper, { backgroundColor: isDarkMode ? theme.card : '#f3f3f7', borderColor: theme.border }]}>
@@ -313,7 +390,11 @@ const styles = StyleSheet.create({
   sender: { fontSize: 10, fontWeight: '700' },
   time: { fontSize: 10 },
   messageBubble: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 13, paddingVertical: 10 },
+  messageImage: { width: 200, height: 150, borderRadius: 10, marginBottom: 6 },
   messageText: { lineHeight: 20 },
+  previewRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingBottom: 8, gap: 8 },
+  previewImage: { width: 56, height: 56, borderRadius: 8 },
+  previewRemove: { padding: 2 },
   compliance: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 5, paddingTop: 4 },
   typingDot: { width: 6, height: 6, borderRadius: 3 },
   complianceText: { fontSize: 10, textAlign: 'center', flexShrink: 1 },
